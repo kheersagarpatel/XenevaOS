@@ -303,11 +303,20 @@ aa64_enter_user:
 
 .global aa64_svc_test
 aa64_svc_test:
-    mov x19,x8
-    mov x16, 1
-    svc #0
-	mov x0, x6
-	mov x8,x19
+   mov x8, 10 
+   svc #0
+
+.global aa64_utest
+aa64_utest:
+  // mov x14,5
+   //mov x8, 0
+   //svc #0
+  // mov x8, x0
+  // svc #0
+ _hnge:
+   //mov x8, 0
+  // svc #0
+   b _hnge
 
 .global read_x30
 read_x30:
