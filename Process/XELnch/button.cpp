@@ -230,8 +230,7 @@ void ButtonIconRead(ButtonIcon* btninfo) {
 	int bpp = 0;
 	memcpy(&bpp, info + 14, sizeof(unsigned short));
 
-	printf("ButtonIconRead: fd=%d size=%d read=%d width=%d height=%d offset=%d\n", 
-		btninfo->iconFd, btninfo->fileSize, read_bytes, width, height, offset);
+	// printf("ButtonIconRead: fd=%d size=%d read=%d width=%d height=%d offset=%d\n", btninfo->iconFd, btninfo->fileSize, read_bytes, width, height, offset);
 
 	btninfo->iconBpp = bpp;
 	btninfo->iconWidth = width;
