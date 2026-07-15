@@ -264,11 +264,13 @@ extern "C" void main(int argc, char* argv[]) {
 
 #ifdef ARCH_ARM64
 	proc = _KeCreateProcess(0, "netmngr");
-	_KeSetUID(proc, UAC_DEAMONS);
-	_KeSetGID(proc, UAC_DEAMONS);
-	_KeCredAddSGroup(proc, ggid_misc_world);
 	int ret_nm = _KeProcessLoadExec(proc, "/netmngr.exe", 0, NULL);
-	if (ret_nm != -1) { _KeProcessSleep(500); }
+	if (ret_nm != -1) {
+		_KeSetUID(proc, UAC_DEAMONS);
+		_KeSetGID(proc, UAC_DEAMONS);
+		_KeCredAddSGroup(proc, ggid_misc_world);
+		_KeProcessSleep(500);
+	}
 
 
 
