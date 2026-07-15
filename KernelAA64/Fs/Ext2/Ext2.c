@@ -15,7 +15,6 @@
 * @param name -- the target string we are matching
 */
 uint32_t Ext2FindEntry(Ext2Fs* fs, Ext2Inode* dir_inode, const char* name) {
-	if (!fs || !dir_inode || !name) return 0;
 	if (!fs || !dir_inode || !name) {
 		AuTextOut("[Ext2]: parameters missing for directory scanning.\r\n");
 		return 0;
@@ -27,7 +26,6 @@ uint32_t Ext2FindEntry(Ext2Fs* fs, Ext2Inode* dir_inode, const char* name) {
 
 	uint64_t* buffer = (uint64_t*)P2V((uint64_t)AuPmmngrAlloc());
 	if (!buffer) {
-		UARTDebugOut("[ext2]: out of memory during directory scanning.\r\n");
 		AuTextOut("[Ext2]: out of memory during directory scanning.\r\n");
 		return 0;
 	}
@@ -46,10 +44,6 @@ uint32_t Ext2FindEntry(Ext2Fs* fs, Ext2Inode* dir_inode, const char* name) {
 		while (current_pos < block_size) {
 			Ext2Dir* entry = (Ext2Dir*)((uint8_t*)buffer + current_pos);
 
-			if (entry->rec_len == 0) return 0;
-
-			if (entry->inode != 0 && entry->name_len == target_len) {
-				if (strncmp(entry->name, name, entry->name_len)) {
 			if (entry->rec_len == 0) {
 				AuPmmngrFree((void*)V2P((uint64_t)buffer));
 				return 0;
@@ -78,7 +72,6 @@ uint32_t Ext2FindEntry(Ext2Fs* fs, Ext2Inode* dir_inode, const char* name) {
 * @param out_inode -- inode to place the readings
 */
 int Ext2ReadInode(Ext2Fs* fs, uint32_t inode_num, Ext2Inode* out_inode) {
-	if (!fs || !out_inode || inode_num == 0) return -1;
 	if (!fs || !out_inode || inode_num == 0) {
 		AuTextOut("[Ext2]: parameters missing for inode reading.\r\n");
 		return -1;
@@ -99,7 +92,6 @@ int Ext2ReadInode(Ext2Fs* fs, uint32_t inode_num, Ext2Inode* out_inode) {
 
 	uint64_t* buffer = (uint64_t*)P2V((uint64_t)AuPmmngrAlloc());
 	if (!buffer) {
-		UARTDebugOut("[ext2]: Inode is out of physical memory pages.\r\n");
 		AuTextOut("[Ext2]: out of memory during inode reading.\r\n");
 		return -1;
 	}
@@ -116,8 +108,6 @@ int Ext2ReadInode(Ext2Fs* fs, uint32_t inode_num, Ext2Inode* out_inode) {
 	return 0;
 };
 
-size_t Ext2Read(AuVFSNode* node, AuVFSNode* file, uint64_t* buffer, uint32_t length) {
-	if (!node || !file || !buffer || !length) return 0;
 /**
 * Ext2ReadBlockIndex -- reads the block index from a given block
 * @param fs -- the filesystem
@@ -166,8 +156,6 @@ size_t Ext2Read(AuVFSNode* node, AuVFSNode* file, uint64_t* buffer, uint32_t len
 
 	uint64_t current_pos = file->pos;
 
-	if (current_pos >= file->size) return 0;
-
 	if (current_pos >= file->size) {
 		AuTextOut("[Ext2]: System reached EOF.\r\n");
 		return 0;
@@ -179,7 +167,6 @@ size_t Ext2Read(AuVFSNode* node, AuVFSNode* file, uint64_t* buffer, uint32_t len
 	uint32_t bytes_read = 0;
 
 	uint64_t* bounce_page = (uint64_t*)P2V((uint64_t)AuPmmngrAlloc());
-	if (!bounce_page)return 0;
 	if (!bounce_page) {
 		AuTextOut("[Ext2]: out of memory during file reading.\r\n");
 		return 0;
@@ -193,9 +180,6 @@ size_t Ext2Read(AuVFSNode* node, AuVFSNode* file, uint64_t* buffer, uint32_t len
 		uint32_t physical_block = 0;
 
 		if (logical_block < 12) physical_block = inode->block[logical_block];
-		else {
-			// @TODO: indirect table routines
-			break;
 		else if (logical_block < (12 + fs->pointers_per_block)) {
 			uint32_t singly_block_id = inode->block[12];
 			if (singly_block_id == 0) physical_block = 0;
@@ -265,8 +249,6 @@ size_t Ext2Read(AuVFSNode* node, AuVFSNode* file, uint64_t* buffer, uint32_t len
 * @param path -- path to the file
 */
 AuVFSNode* Ext2Open(AuVFSNode* fsys, char* path) {
-	if (!fsys || !path) return NULL;
-
 	if (!fsys || !path) {
 		AuTextOut("[Ext2]: parameters missing for file opening.\r\n");
 		return NULL;
@@ -289,7 +271,6 @@ AuVFSNode* Ext2Open(AuVFSNode* fsys, char* path) {
 		root_session->first_block = 2;
 		root_session->size = 0;
 		root_session->pos = 0;
-		root_session->read = NULL;
 		root_session->read = Ext2Read;
 		root_session->device = fs;
 		root_session->private_data = NULL;
@@ -297,12 +278,6 @@ AuVFSNode* Ext2Open(AuVFSNode* fsys, char* path) {
 	}
 
 	uint32_t current_inode_number = 2;
-
-	Ext2Inode current_inode;
-
-	char path_local[256];
-	strncpy(path_local, path, 256);
-	path_local[256] = '\0';
 	Ext2Inode current_inode;
 
 	char path_local[256];
@@ -322,13 +297,6 @@ AuVFSNode* Ext2Open(AuVFSNode* fsys, char* path) {
 			nxt_token++;
 		}
 
-		if (strlen(token)) {
-			token = nxt_token;
-			continue;
-		}
-
-		if (Ext2ReadInode(fs, current_inode_number, &current_inode) != 0) {
-			UARTDebugOut("[ext2]: failed to read the inode sector during path sweep.\r\n");
 
 		if (Ext2ReadInode(fs, current_inode_number, &current_inode) != 0) {
 			AuTextOut("[Ext2]: failed to read the inode sector during path sweep.\r\n");
@@ -336,13 +304,11 @@ AuVFSNode* Ext2Open(AuVFSNode* fsys, char* path) {
 		}
 
 		if (!(current_inode.mode & EXT2_S_IFDIR)) {
-			UARTDebugOut("[ext2]: path element is not a directory container.\r\n");
 			AuTextOut("[Ext2]: path element is not a directory container.\r\n");
 			return NULL;
 		}
 
 		uint32_t found_inode_num = Ext2FindEntry(fs, &current_inode, token);
-		if (found_inode_num == 0) return NULL;
 		if (found_inode_num == 0) {
 			AuTextOut("[Ext2]: path element not found in directory.\r\n");
 			return NULL;
@@ -352,10 +318,6 @@ AuVFSNode* Ext2Open(AuVFSNode* fsys, char* path) {
 		token = nxt_token;
 	}
 
-	if (Ext2ReadInode(fs, current_inode_number, &current_inode) != 0) return NULL;
-
-	AuVFSNode* file_session = (AuVFSNode*)kmalloc(sizeof(AuVFSNode));
-	if (!file_session) return NULL;
 	if (Ext2ReadInode(fs, current_inode_number, &current_inode) != 0) {
 		AuTextOut("[Ext2]: failed to read the final inode sector during path sweep.\r\n");
 		return NULL;
@@ -371,8 +333,6 @@ AuVFSNode* Ext2Open(AuVFSNode* fsys, char* path) {
 	file_session->first_block = current_inode_number;
 	file_session->size = current_inode.size;
 
-	char* raw_filename = strchr(path, '/');
-	strcpy(file_session->filename, raw_filename ? (raw_filename + 1) : path);
 	char* raw_filename = strrchr(path, '/');
 	char* final_name = raw_filename ? (raw_filename + 1) : path;
 	strncpy(file_session->filename, final_name, 31);
@@ -431,7 +391,6 @@ AuVFSNode* Ext2Initialise(AuVDisk* vdisk, char* mountname) {
 		AuPmmngrFree((void*)V2P((uint64_t)buffer));
 		kfree(fs->superblock);
 		kfree(fs);
-		UARTDebugOut("[ext2]: EXT2 magic mismatch \n");
 		AuTextOut("[ext2]: EXT2 magic mismatch \n");
 		for (;;);
 		return NULL;

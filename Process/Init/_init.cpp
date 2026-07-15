@@ -259,14 +259,16 @@ extern "C" void main(int argc, char* argv[]) {
 	/** TODO: add IPC system to track real system progress and animate the logo accordingly **/
 	_KeProcessSleep(100);
 
-	
+	int proc = 0;
 
 
 #ifdef ARCH_ARM64
-	/* netmngr.exe is not yet ported to ARM64 -- skipping for now */
-	/* int proc_nm = _KeCreateProcess(0, "netmngr");
-	_KeProcessLoadExec(proc_nm, "/netmngr.exe", 0, NULL); */
-	_KeProcessSleep(100);
+	proc = _KeCreateProcess(0, "netmngr");
+	_KeSetUID(proc, UAC_DEAMONS);
+	_KeSetGID(proc, UAC_DEAMONS);
+	_KeCredAddSGroup(proc, ggid_misc_world);
+	int ret_nm = _KeProcessLoadExec(proc, "/netmngr.exe", 0, NULL);
+	if (ret_nm != -1) { _KeProcessSleep(500); }
 
 
 
@@ -277,7 +279,7 @@ extern "C" void main(int argc, char* argv[]) {
 
 
 	/** from now, normal user's won't get system access */
-	int proc = _KeCreateProcess(0, "deodhaixr");
+	proc = _KeCreateProcess(0, "deodhaixr");
 	_KeSetUID(proc, UAC_NORMAL_USER);
 	_KeSetGID(proc, UAC_NORMAL_USER);
 	_KeCredAddSGroup(proc, ggid_misc_world);
@@ -302,7 +304,7 @@ extern "C" void main(int argc, char* argv[]) {
 
 	
 #elif ARCH_X64
-	int proc = _KeCreateProcess(0, "deodhai");
+	proc = _KeCreateProcess(0, "deodhai");
 	_KeProcessLoadExec(proc, "/deodhai.exe", 0, NULL);
 #endif
 
