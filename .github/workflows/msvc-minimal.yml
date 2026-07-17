@@ -1,0 +1,50 @@
+name: MSVC Minimal Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-msvc:
+    name: MSVC Minimal Split Build
+    runs-on: windows-2022
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.1
+
+      - name: Install NASM
+        uses: ilammy/setup-nasm@v1
+
+      - name: Setup NASM Customizations
+        shell: pwsh
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $vcPath = Join-Path $vsPath "VC"
+          $nasmExePath = Get-Command nasm.exe | Select-Object -ExpandProperty Source
+          Copy-Item $nasmExePath -Destination $vcPath -Force
+          Expand-Archive -Path Resources/nasmprops.zip -DestinationPath nasmprops -Force
+          $msbuildVcPath = Join-Path $vsPath "MSBuild\Microsoft\VC"
+          $customizationsPaths = Get-ChildItem -Path $msbuildVcPath -Filter "BuildCustomizations" -Directory -Recurse | Select-Object -ExpandProperty FullName
+          foreach ($path in $customizationsPaths) {
+              Copy-Item nasmprops\* -Destination $path -Force -Recurse
+          }
+
+      - name: Build Part 1 (Libraries & Boot)
+        run: msbuild Aurora.sln /t:XEClib;XECrt;Chitralekha;Boot /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 -clp:ErrorsOnly
+
+      - name: Build Part 2 (Kernel)
+        run: msbuild Aurora.sln /t:Kernel /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 -clp:ErrorsOnly
+
+      - name: Build Part 3 (Drivers)
+        run: msbuild Aurora.sln /t:Acpica;AHCI;NVMe;VMSvga;vmware;E1000;Usb3;xHCI;hid;msc;usbhci;dwc2-otg;dwc2-uspi;IntelHDA /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 -clp:ErrorsOnly
+
+      - name: Build Part 4 (Core GUI & Audio)
+        run: msbuild Aurora.sln /t:Deodhai;DeodhaiXR;DeodhaiAudio;AudioPlayer /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 -clp:ErrorsOnly
+
+      - name: Build Part 5 (System Services)
+        run: msbuild Aurora.sln /t:Init;Terminal;XEShell;XELnch;NETMngr;Control;systray;monitor /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 -clp:ErrorsOnly
+
+      - name: Build Part 6 (Apps & Utilities)
+        run: msbuild Aurora.sln /t:Calculator;Files;play;Namdapha;Piano;Calender;ping;nslook;cat;rm;mp4plr;glimpse;nyancat /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 -clp:ErrorsOnly
