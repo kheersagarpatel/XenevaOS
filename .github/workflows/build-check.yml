@@ -58,8 +58,11 @@ jobs:
           fi
 
   build-windows-msvc:
-    name: MSVC (Windows / ARM64)
+    name: MSVC ${{ matrix.strictness }} (Windows / ARM64)
     runs-on: windows-2022
+    strategy:
+      matrix:
+        strictness: [Strict, Permissive]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -89,4 +92,9 @@ jobs:
 
       - name: Build Solution (Aurora.sln)
         run: |
-          msbuild Aurora.sln /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 -clp:ErrorsOnly
+          if ("${{ matrix.strictness }}" -eq "Strict") {
+            msbuild Aurora.sln /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 /p:TreatWarningsAsErrors=true -clp:ErrorsOnly
+          } else {
+            msbuild Aurora.sln /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 /p:AdditionalOptions="/permissive" -clp:ErrorsOnly
+          }
+        shell: pwsh
