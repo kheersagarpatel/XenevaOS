@@ -38,6 +38,24 @@ jobs:
           make clean
           make
 
+  build-linux-llvm:
+    name: LLVM (Linux / ARM64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Toolchains (LLVM AArch64)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu clang lld make mtools dosfstools
+
+      - name: Build GNU-EFI (AArch64)
+        run: |
+          git clone https://github.com/vathpela/gnu-efi gnu-efi
+          cd gnu-efi
+          make ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu-
+
       - name: Build Bootloader (BootAA64 - LLVM)
         run: |
           cd BootAA64
@@ -51,7 +69,7 @@ jobs:
           make llvm
 
   build-windows-msvc:
-    name: MSVC (Windows / x64)
+    name: MSVC (Windows / ARM64)
     runs-on: windows-2022
     steps:
       - name: Checkout Code
@@ -66,14 +84,20 @@ jobs:
       - name: Setup NASM Customizations for MSBuild
         shell: pwsh
         run: |
-          Expand-Archive -Path Resources/nasmprops.zip -DestinationPath nasmprops -Force
           $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          $vcPath = Join-Path $vsPath "MSBuild\Microsoft\VC"
-          $customizationsPaths = Get-ChildItem -Path $vcPath -Filter "BuildCustomizations" -Directory -Recurse | Select-Object -ExpandProperty FullName
+          
+          # Copy nasm.exe to VC directory for nasm.targets
+          $vcPath = Join-Path $vsPath "VC"
+          $nasmExePath = Get-Command nasm.exe | Select-Object -ExpandProperty Source
+          Copy-Item $nasmExePath -Destination $vcPath -Force
+
+          Expand-Archive -Path Resources/nasmprops.zip -DestinationPath nasmprops -Force
+          $msbuildVcPath = Join-Path $vsPath "MSBuild\Microsoft\VC"
+          $customizationsPaths = Get-ChildItem -Path $msbuildVcPath -Filter "BuildCustomizations" -Directory -Recurse | Select-Object -ExpandProperty FullName
           foreach ($path in $customizationsPaths) {
               Copy-Item nasmprops\* -Destination $path -Force -Recurse
           }
 
       - name: Build Solution (Aurora.sln)
         run: |
-          msbuild Aurora.sln /p:Configuration=Debug /p:Platform=x64 /p:PlatformToolset=v143
+          msbuild Aurora.sln /p:Configuration=Debug /p:Platform=ARM64 /p:PlatformToolset=v143
