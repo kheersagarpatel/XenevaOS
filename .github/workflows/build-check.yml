@@ -89,4 +89,4 @@ jobs:
 
       - name: Build Solution (Aurora.sln)
         run: |
-          msbuild Aurora.sln /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143
+          msbuild Aurora.sln /p:Configuration=Debug /p:Platform="Mixed Platforms" /p:PlatformToolset=v143 -clp:ErrorsOnly
