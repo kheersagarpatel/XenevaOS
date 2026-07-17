@@ -410,7 +410,13 @@ int imx8mp_pll1443x_set_rate(uint64_t base, unsigned long drate, unsigned long p
 
 int imx8mp_wait_lock(uint64_t base){
 	uint32_t val;
-	return _bordoisila_readl_poll_timeout(base + GNRL_CTL, val, val & LOCK_STATUS, 0, LOCK_TIMEOUT_US);
+	uint32_t elapsed = 0;
+	for (;;) {
+		val = _bordoisila_readl(base + GNRL_CTL);
+		if (val & LOCK_STATUS) return 0;
+		if (elapsed >= LOCK_TIMEOUT_US) return -1;
+		elapsed++;
+	}
 }
 
 void imx8mp_pll_prepare(uint64_t base) {
