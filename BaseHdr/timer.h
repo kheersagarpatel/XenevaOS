@@ -119,16 +119,16 @@ extern int AuTimerCalculateAlarm(AuThread* thr, uint64_t seconds);
 extern int AuTimerCalculateAlarm(AA64Thread* thr, uint64_t seconds);
 #endif
 
-/* POSIX Timer API */
-typedef struct _itimerval_ {
-	timeval it_interval;
-	timeval it_value;
-}itimerval_t;
-
 typedef struct _timeval_t_ {
 	long tv_sec;
 	long tv_usec;
 }timeval_t;
+
+/* POSIX Timer API */
+typedef struct _itimerval_ {
+	timeval_t it_interval;
+	timeval_t it_value;
+}itimerval_t;
 
 
 

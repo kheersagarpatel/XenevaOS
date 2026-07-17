@@ -101,7 +101,7 @@
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <OutputFile>..\..\Build\$(TargetName).dll</OutputFile>
-      <AdditionalLibraryDirectories>$(SolutionDir)Build\;..\..\..\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)Build\;..\$(SolutionDir)Build;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Kernel.lib;</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>

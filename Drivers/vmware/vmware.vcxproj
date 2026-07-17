@@ -86,7 +86,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>
       </SDLCheck>
-      <AdditionalIncludeDirectories>E:\Xeneva Project\Aurora\BaseHdr</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)BaseHdr</AdditionalIncludeDirectories>
       <OmitFramePointers>true</OmitFramePointers>
       <PreprocessorDefinitions>ARCH_X64;USE_APIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
@@ -100,7 +100,7 @@
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <OutputFile>F:/vmware.dll</OutputFile>
-      <AdditionalLibraryDirectories>$(SolutionDir)Build\;E:\Xeneva Project\Aurora\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)Build\;$(SolutionDir)Build;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Kernel.lib;</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>

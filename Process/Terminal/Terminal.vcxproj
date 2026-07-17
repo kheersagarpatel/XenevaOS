@@ -130,7 +130,7 @@
     <Link>
       <GenerateDebugInformation>
       </GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Build\;..\..\Libs\XECrt;..\..\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)Build\;..\..\Libs\XECrt;$(SolutionDir)Build;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>xecrt.lib;XEClib.lib;chlkha.lib;</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <OutputFile>..\..\Build\term.exe</OutputFile>

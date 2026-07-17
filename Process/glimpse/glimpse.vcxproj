@@ -124,7 +124,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>E:\Xeneva Project\Aurora\Libs\XEClib\includes;E:\Xeneva Project\Aurora\Libs\Chitralekha;E:\os_dev\freetype2-master\freetype2-master\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Libs\XEClib\includes;$(SolutionDir)Libs\Chitralekha;E:\os_dev\freetype2-master\freetype2-master\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>ARCH_X64;YES_DYNAMIC; DYNAMIC_IMPORTER ;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
       <ExceptionHandling>false</ExceptionHandling>
@@ -140,7 +140,7 @@
       <GenerateDebugInformation>
       </GenerateDebugInformation>
       <OutputFile>F:\calc.exe</OutputFile>
-      <AdditionalLibraryDirectories>$(SolutionDir)Build\;E:\Xeneva Project\Aurora\x64\Debug;E:\Xeneva Project\Aurora\Libs\XECrt;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)Build\;$(SolutionDir)Build;$(SolutionDir)Libs\XECrt;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>XEClib.lib; xecrt.lib; Chitralekha.lib;ftype.lib;</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>
