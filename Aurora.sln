@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.34729.46
@@ -135,6 +135,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dwc2-otg", "Drivers\USB\dwc2-otg\dwc2-otg.vcxproj", "{E121230A-7D08-42F0-966B-D96349EF976F}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glimpse", "Process\glimpse\glimpse.vcxproj", "{B44F1C3D-F499-49F4-940D-227B5D5F5DD2}"
+	ProjectSection(ProjectDependencies) = postProject
+		{13366E8F-2DBF-4E21-A7A7-52D8B788F4BC} = {13366E8F-2DBF-4E21-A7A7-52D8B788F4BC}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dwc2-uspi", "Drivers\USB\dwc2-uspi\dwc2-uspi.vcxproj", "{B8BF3983-424E-4915-AAA5-FA90DFFEB7C8}"
 EndProject
