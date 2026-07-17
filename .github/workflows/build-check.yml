@@ -8,65 +8,54 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux-gcc:
-    name: GCC (Linux / ARM64)
+  build-linux:
+    name: ${{ matrix.compiler }} (Linux / ARM64)
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [GCC, LLVM]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Install Toolchains (GCC & LLVM AArch64)
+      - name: Cache GNU-EFI
+        id: cache-gnu-efi
+        uses: actions/cache@v3
+        with:
+          path: gnu-efi
+          key: gnu-efi-aarch64-v1
+
+      - name: Install Toolchains
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu clang lld make mtools dosfstools
 
       - name: Build GNU-EFI (AArch64)
+        if: steps.cache-gnu-efi.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/vathpela/gnu-efi gnu-efi
           cd gnu-efi
           make ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu-
 
-      - name: Build Bootloader (BootAA64 - GCC)
+      - name: Build Bootloader (BootAA64)
         run: |
           cd BootAA64
           make clean
-          make
+          if [ "${{ matrix.compiler }}" = "LLVM" ]; then
+            make llvm
+          else
+            make
+          fi
 
-      - name: Build Kernel (KernelAA64 - GCC)
+      - name: Build Kernel (KernelAA64)
         run: |
           cd KernelAA64
           make clean
-          make
-
-  build-linux-llvm:
-    name: LLVM (Linux / ARM64)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Install Toolchains (LLVM AArch64)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu clang lld make mtools dosfstools
-
-      - name: Build GNU-EFI (AArch64)
-        run: |
-          git clone https://github.com/vathpela/gnu-efi gnu-efi
-          cd gnu-efi
-          make ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu-
-
-      - name: Build Bootloader (BootAA64 - LLVM)
-        run: |
-          cd BootAA64
-          make clean
-          make llvm
-
-      - name: Build Kernel (KernelAA64 - LLVM)
-        run: |
-          cd KernelAA64
-          make clean
-          make llvm
+          if [ "${{ matrix.compiler }}" = "LLVM" ]; then
+            make llvm
+          else
+            make
+          fi
 
   build-windows-msvc:
     name: MSVC (Windows / ARM64)
