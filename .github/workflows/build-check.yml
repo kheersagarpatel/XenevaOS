@@ -15,10 +15,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Install Toolchains (GCC AArch64)
+      - name: Install Toolchains (GCC & LLVM AArch64)
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu make mtools dosfstools
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu clang lld make mtools dosfstools
 
       - name: Build GNU-EFI (AArch64)
         run: |
@@ -26,15 +26,29 @@ jobs:
           cd gnu-efi
           make ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu-
 
-      - name: Build Bootloader (BootAA64)
+      - name: Build Bootloader (BootAA64 - GCC)
         run: |
           cd BootAA64
+          make clean
           make
 
-      - name: Build Kernel (KernelAA64)
+      - name: Build Kernel (KernelAA64 - GCC)
         run: |
           cd KernelAA64
+          make clean
           make
+
+      - name: Build Bootloader (BootAA64 - LLVM)
+        run: |
+          cd BootAA64
+          make clean
+          make llvm
+
+      - name: Build Kernel (KernelAA64 - LLVM)
+        run: |
+          cd KernelAA64
+          make clean
+          make llvm
 
   build-windows-msvc:
     name: MSVC (Windows / x64)
