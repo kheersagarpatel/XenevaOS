@@ -3,4 +3,8 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+namespace std {
+    using ::size_t;
+}
 #endif

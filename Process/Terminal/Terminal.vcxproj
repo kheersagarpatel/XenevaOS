@@ -130,7 +130,7 @@
     <Link>
       <GenerateDebugInformation>
       </GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Build\;..\..\Libs\XECrt;$(SolutionDir)Build;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)Build\;$(SolutionDir)$(Platform)\$(Configuration)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>xecrt.lib;XEClib.lib;chlkha.lib;</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <OutputFile>..\..\Build\term.exe</OutputFile>
@@ -173,7 +173,7 @@
     <Link>
       <GenerateDebugInformation>
       </GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Build\;..\..\ARM64\Debug;..\..\Libs\XECrt</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)Build\;$(SolutionDir)$(Platform)\$(Configuration)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>xecrt.lib;XEClib.lib;chlkha.lib;</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <OutputFile>..\..\Build\term.exe</OutputFile>

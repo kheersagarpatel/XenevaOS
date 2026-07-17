@@ -181,7 +181,7 @@
       <SubSystem>Native</SubSystem>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <OutputFile>..\Build\EFI\XENEVA\xnkrnl.exe</OutputFile>
-      <AdditionalLibraryDirectories>$(SolutionDir)Build\;..\x64\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)Build\;$(SolutionDir)$(Platform)\$(Configuration)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies />
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>
