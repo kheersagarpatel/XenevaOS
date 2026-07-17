@@ -99,7 +99,6 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <OutputFile>F:/vmsvga.dll</OutputFile>
       <AdditionalLibraryDirectories>$(SolutionDir)Build\;$(SolutionDir)Build;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Kernel.lib;</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>

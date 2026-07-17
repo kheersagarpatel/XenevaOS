@@ -485,9 +485,9 @@ AU_EXTERN AU_EXPORT int AuDriverMain() {
 	memset(sound, 0, sizeof(AuSound));
 	strcpy(sound->name, "intelhda");
 	sound->read = 0;
-	sound->set_vol = HDASetVolume;
-	sound->start_output = HDAudioStartOutput;
-	sound->stop_output = HDAudioStopOutput;
+	sound->set_vol = (int (*)(uint8_t))HDASetVolume;
+	sound->start_output = (int (*)(void))HDAudioStartOutput;
+	sound->stop_output = (int (*)(void))HDAudioStopOutput;
 	sound->write = 0;
 	AuSoundSetCard(sound);
 

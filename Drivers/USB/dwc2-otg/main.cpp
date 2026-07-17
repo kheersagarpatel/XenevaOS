@@ -41,6 +41,11 @@
 #include <list.h>
 #include <string.h>
 
+#ifdef ARCH_X64
+extern "C" void AuRPI3PeripheralIRQEnable(int irq) {}
+extern "C" int AuRPISetPowerState(int id) { return 0; }
+#endif
+
 #define DWC2_BASE 0x3F980000
 uint64_t _base;
 bool _root_port_ready;

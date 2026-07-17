@@ -1,0 +1,6 @@
+#ifndef _CSTDDEF_
+#define _CSTDDEF_
+
+#include <stdint.h>
+
+#endif
