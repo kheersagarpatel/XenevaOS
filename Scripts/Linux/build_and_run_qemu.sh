@@ -2,16 +2,14 @@
 set -e
 
 # Check for build flags
-FORCE_LEGACY_BUILD=0
 BUILD_USER_APPS=0
 
 for arg in "$@"; do
-    if [ "$arg" == "--force-legacy-build" ]; then
-        FORCE_LEGACY_BUILD=1
-    elif [ "$arg" == "--force-user-apps" ]; then
+    if [ "$arg" == "--force-user-apps" ]; then
         BUILD_USER_APPS=1
     fi
 done
+
 
 if [ "$BUILD_USER_APPS" -eq 1 ]; then
     echo "[+] Rebuilding Libraries and User Applications..."
@@ -67,26 +65,11 @@ mmd -i fat.img ::/EFI
 mmd -i fat.img ::/EFI/BOOT
 mmd -i fat.img ::/EFI/XENEVA
 
-# [Note: The default script will always build initrd2.img and pack resources.
-# Using a pre-built legacy initrd2.img is NOT RECOMMENDED, but can be forced
-# by passing the --force-legacy-build flag.
-# Example Directory Structure:
-#   XenevaOS/
-#   ├── KernelAA64/
-#   ├── BootAA64/
-#   ├── Scripts/
-#   └── initrd2.img   <-- Place it exactly here
-# ]
-if [ "$FORCE_LEGACY_BUILD" -eq 0 ]; then
-    echo "[+] Creating 64MB FAT32 initrd2.img and packing resources..."
-    dd if=/dev/zero of=initrd2.img bs=1M count=64
-    mkfs.vfat -F 32 initrd2.img
-    mcopy -o -i initrd2.img Resources/resources/* ::/
-    mcopy -o -i initrd2.img Process/Init/init.exe ::/init.exe
-else
-    echo "[+] Found pre-built initrd2.img, skipping manual creation."
-    echo "    (Use --force-manual-build flag to override)"
-fi
+echo "[+] Creating 64MB FAT32 initrd2.img and packing resources..."
+dd if=/dev/zero of=initrd2.img bs=1M count=64
+mkfs.vfat -F 32 initrd2.img
+mcopy -o -i initrd2.img Resources/resources/* ::/
+mcopy -o -i initrd2.img Process/Init/init.exe ::/init.exe
 
 mcopy -o -i fat.img BootAA64/Build/EFI/BOOT/BOOTAA64.efi ::/EFI/BOOT/BOOTAA64.EFI
 mcopy -o -i fat.img KernelAA64/KernelAA64.exe ::/EFI/XENEVA/xnkrnl.exe
