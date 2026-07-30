@@ -41,6 +41,7 @@
 #include <Mm/mmap.h>
 #include <signal.h>
 #include <timer.h>
+#include <Log/klog.h>
 
 /**
  * @brief GetThreadID -- returns current id
@@ -262,9 +263,29 @@ int SetFileToProcess(int fileno, int dest_fdidx, int proc_id) {
 		 * fileno to destination processes file
 		 * entry
 		 */
+		
+
+
+
 		destproc->fds[dest_fdidx] = file;
 		file->fileCopyCount += 1;
-	}
+
+		/* inherit the capability if inheritance is allowed */
+		AuCapability* src = BordoisilaCapLookup(proc, fileno);
+		if (src && !(src->flags & CAP_FLAG_NO_INHERIT)) {
+			BPrintK(BORDOISILA_INFO, "Capability copied from proc : %s, fileno-> %d \r\n", proc->name, fileno);
+   		 BordoisilaCapCreate(
+       		 destproc,
+        		dest_fdidx,
+       		 file,
+       		 src->object_type,
+       		 src->rights);
+		} 
+
+
+	}     
+    return 0;
+
 }
 
 /**
@@ -342,7 +363,7 @@ int SetSignal(int signo, AuSignalHandler handler) {
 	AA64Thread* thr = AuGetCurrentThread();
 	if (!thr)
 		return 0;
-	thr->sigs[signo] = handler;
+	thr->sigs[signo] = (uint64_t*)handler;
 }
 
 /**

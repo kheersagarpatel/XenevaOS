@@ -47,7 +47,7 @@ volatile uint32_t* gicc_regs;
 typedef void (*irq_callback)(int spi);
 
 /** distributor registers */
-#define GICD(n)  ((uint8_t*)(n.gicDMMIO))
+#define GICD(n)  (n.gicDMMIO)
 #define GICD_CTLR    0x0000
 #define GICD_TYPER   0x0004
 #define GICD_IIDR    0x0008
@@ -555,7 +555,7 @@ void GICEnableSPIIRQ(uint32_t irq) {
 
 		if (__gic.version >= GIC_VERSION_3) {
 			/** route it to cpu0 **/
-			gic_outqw(GICD(__gic), 0x6000 + irq * 8, 0ULL);
+			gic_outqw((uint64_t*)GICD(__gic), 0x6000 + irq * 8, 0ULL);
 		}
 
 		*(volatile uint8_t*)(GICD(__gic) + GICD_IPRIORITYR(irq)) = 0x80;

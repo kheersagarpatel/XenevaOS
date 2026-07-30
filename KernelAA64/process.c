@@ -52,6 +52,7 @@
 #include <Drivers/uart.h>
 #include <timer.h>
 #include <clean.h>
+#include <Cap/capability.h>
 
 
 static int pid = 1;
@@ -414,6 +415,7 @@ void AuProcessExit(AuProcess* proc, bool schedulable) {
 	}
 
 	/** free up all allocated files by this process **/
+	BordoisilaCapCleanupProcess(proc);
 	for (int i = 0; i < FILE_DESC_PER_PROCESS; i++) {
 		AuVFSNode* file = proc->fds[i];
 		if (file) {
@@ -521,6 +523,7 @@ int AuProcessWaitForTermination(AuProcess* proc, int pid) {
 		list_add(proc->waitlist, thr);
 		return 1;
 	}
+	return 0;
 }
 
 /**
@@ -568,7 +571,7 @@ static uint32_t AuProcessUpdateCPUPercent(AuProcess* proc, uint64_t now) {
 	uint64_t time_delta = now - proc->prev_sample_time_us;
 
 	if (time_delta == 0)
-		proc->cpu_usage = 0.0;
+		proc->cpu_usage = 0;
 	else
 		proc->cpu_usage = (uint32_t)((runtime_delta * 1000) / time_delta);// * num_cores );
 

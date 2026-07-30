@@ -69,6 +69,8 @@
 #include <Fs/Fat/Fat.h>
 #include <Fs/Fat/FatFile.h>
 #include <Fs/Fat/FatDir.h>
+#include <linux/bitops.h>
+#include <Log/klog.h>
 
 extern int _fltused = 1;
 static bool _littleboot_used;
@@ -196,6 +198,7 @@ void _AuMain(KERNEL_BOOT_INFO* info) {
 #endif
 
 	AuConsoleInitialize(info, true);
+	B_KLogInit();
     AuDeviceTreeInitialize(info);
 	AA64CpuInitialize();
 	mask_irqs();
@@ -206,13 +209,13 @@ void _AuMain(KERNEL_BOOT_INFO* info) {
 	AuHeapInitialize();
 	AuDeviceTreeMapMMIO();
 	AuAA64BoardInitialize();
-	AA64CPUPostInitialize(info);	
-	AuTextOut("Initializing VFS \r\n");
+	AA64CPUPostInitialize(info);
 	AuVFSInitialise();
-	AuTextOut("[aurora]: VFS initialized \r\n");
 	AuInitrdInitialize(info);
 	AuConsolePostInitialise(info);
 	//AuConsoleBypassAuTextOut();
+	
+
 	AuroraTimerInitialize();
 
 	/* initialize the tty service */
@@ -281,7 +284,6 @@ void _AuMain(KERNEL_BOOT_INFO* info) {
 	AuMmngrFileCacheEnable();
 
 	UARTDebugOut("[aurora]: boot freed up \r\n");
-
 
 	AuSchedulerInitialize();
 

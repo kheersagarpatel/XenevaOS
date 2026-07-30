@@ -38,6 +38,7 @@
 #include <aucon.h>
 #include <Drivers/virtio.h>
 #include <Hal/AA64/aa64lowlevel.h>
+#include <Log/klog.h>
 
 extern void imx8mp_gpc_init();
 
@@ -61,7 +62,7 @@ void AuAA64BoardInitialize() {
 	imx8mp_gpc_init();
 	imx8mp_pll_init();
 	imx8mp_gate_init();
-	imx8mp_ccm_init();
+    imx8mp_ccm_init();
 #endif
 }
 
@@ -86,9 +87,9 @@ void AuAA64BoardSleepUS(uint32_t us) {
  */
 void AuAA64BoardSleepMS(uint32_t ms) {
 #ifdef __TARGET_BOARD_RPI3__
-	return AuRPIDelayMS(ms);
+	AuRPIDelayMS(ms);
 #endif
-	return AuAA64BoardSleepUS(ms * 1000ULL);
+	AuAA64BoardSleepUS(ms * 1000ULL);
 }
 
 /**
