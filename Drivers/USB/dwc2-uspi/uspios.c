@@ -28,6 +28,11 @@
 #include <Hal/AA64/aa64cpu.h>
 #include <Hal/AA64/aa64lowlevel.h>
 
+#if defined(__x86_64__) || defined(_M_X64) || defined(ARCH_X64)
+void AuRPI3PeripheralIRQEnable(int irq) {}
+int AuRPISetPowerState(int id) { return 0; }
+#endif
+
 void* malloc(unsigned nSize) {
 	return kmalloc(nSize);
 }

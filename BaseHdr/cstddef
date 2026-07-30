@@ -1,0 +1,10 @@
+#ifndef _CSTDDEF_
+#define _CSTDDEF_
+
+#include <stdint.h>
+
+#ifdef __cplusplus
+namespace std {
+    using ::size_t;
+}
+#endif

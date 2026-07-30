@@ -32,9 +32,9 @@
 .extern _KeProcessExit
 
 
-.global __chkstk
-__chkstk:
-ret
+//.global __chkstk
+//__chkstk:
+//ret
 
 .global _xemain
 _xemain:
