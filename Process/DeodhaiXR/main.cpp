@@ -386,6 +386,9 @@ void XRComposeFrame(ChCanvas* canvas) {
 		if (info->zoomed)
 			continue; // handled in the zoom pass below
 
+		if (info->zoomed)
+			continue; // handled in the zoom pass below
+
 		/** do either one -- dirty area tracking or else update all */
 		_compose_dirty_area_(canvas, win, focusedWin, info);
 
@@ -407,6 +410,28 @@ void XRComposeFrame(ChCanvas* canvas) {
 
 		if (WinSharedFlagLoad(&info->dirty) || info->rect_count > 0 ||
 			WinSharedFlagLoad(&info->updateEntireWindow) || _window_update_all_) {
+			compose_window_zoomed(canvas, win, info);
+			info->rect_count = 0;
+			WinSharedFlagStore(&info->dirty, false);
+			WinSharedFlagStore(&info->updateEntireWindow, false);
+			AddDirtyClip(0, 0, (int)canvas->canvasWidth, (int)canvas->canvasHeight);
+		}
+	}
+
+	/**
+	 * Zoomed (maximised) windows: stretched-fill upscale into the compose
+	 * canvas (the back surface the GPU flush presents from), above normal
+	 * windows; always-on-top and cursor still compose over them
+	 * afterwards. Fullscreen dirty is published so transfer moves it.
+	 */
+	for (Window* win = rootWin; win != NULL; win = win->next) {
+		WinSharedInfo* info = (WinSharedInfo*)win->sharedInfo;
+
+		if (info->hide || !info->zoomed)
+			continue;
+
+		if (WinSharedFlagLoad(&info->dirty) || info->rect_count > 0 ||
+			WinSharedFlagLoad(&info->updateEntireWindow)) {
 			compose_window_zoomed(canvas, win, info);
 			info->rect_count = 0;
 			WinSharedFlagStore(&info->dirty, false);
@@ -646,7 +671,7 @@ void DeodhaiWindowCheckDraggable(int x, int y, int button) {
 	for (Window* win = lastWin; win != NULL; win = win->prev) {
 		WinSharedInfo* info = (WinSharedInfo*)win->sharedInfo;
 		if (info->zoomed)
-			continue;
+			continue; // zoomed windows fill the screen; not draggable
 		//_KePrint("INFO->x %d, mx -> %d \r\n", info->x, x);
 		if (!(x >= (info->x + 10) && x < (info->x + info->width - 74) && y >= info->y &&
 			  y < (info->y + info->height)))
@@ -775,6 +800,23 @@ void DeodhaiBroadcastMouse(int mouse_x, int mouse_y, int button) {
 			}
 		}
 	}
+	if (!mouseWin) {
+		/* zoomed (maximised) window covers the screen: it wins whatever
+		 * is left, keeping overlays/taskbar priority from above. */
+		for (Window* win = rootWin; win != NULL; win = win->next) {
+			WinSharedInfo* zinfo = (WinSharedInfo*)win->sharedInfo;
+			if (zinfo->hide || !zinfo->zoomed)
+				continue;
+			if (focusedWin != win && button) {
+				DeodhaiWindowSetFocused(win, 1);
+				_window_update_all_ = true;
+				_shadow_update = true;
+			}
+			mouseWin = win;
+			break;
+		}
+	}
+
 	if (!mouseWin) {
 		/* zoomed (maximised) window covers the screen: it wins whatever
 		 * is left, keeping overlays/taskbar priority from above. */
@@ -1023,6 +1065,7 @@ void DeodhaiCloseWindow(Window* win) {
 int main(int argc, char* argv[]) {
 	_KePrint("Hello DeodhaiXR \n");
 	_KePrint("DeodhaiXR - Copyright (C) Xeneva Pvt Ltd 2023-2026\n");
+	_KePrint("[deodhaiXR]: zoom compose active (stretched nearest)\n");
 
 	DeodhaiInitialiseData();
 
