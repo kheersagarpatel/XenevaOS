@@ -80,7 +80,6 @@ typedef struct _win_info_ {
 	bool zoomed;
 	double alphaValue;
 	bool windowReady;
-	bool zoomed;
 } WinSharedInfo;
 
 static inline bool WinSharedFlagLoad(const bool* flag) {
