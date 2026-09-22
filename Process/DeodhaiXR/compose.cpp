@@ -212,6 +212,8 @@ void _compose_dirty_area_(ChCanvas* canvas, Window* win, Window* focusedWin, Win
 						clipInfo = (WinSharedInfo*)clipWin->sharedInfo;
 						if (clipWin == win)
 							continue;
+						if (clipInfo->hide)
+							continue;
 						r2.x = clipInfo->x;
 						r2.y = clipInfo->y;
 						r2.w = clipInfo->width;
@@ -323,6 +325,8 @@ void _compose_entire_window(ChCanvas* canvas,
 
 				if (clipWin == win)
 					continue;
+				if (clipInfo->hide)
+					continue;
 
 				r2.x = clipInfo->x;
 				r2.y = clipInfo->y;
@@ -420,6 +424,8 @@ void _compose_always_on_top_dirty(
 					for (clipWin = win; clipWin != NULL; clipWin = clipWin->next) {
 						clipInfo = (WinSharedInfo*)clipWin->sharedInfo;
 						if (clipWin == win)
+							continue;
+						if (clipInfo->hide)
 							continue;
 						r2.x = clipInfo->x;
 						r2.y = clipInfo->y;
