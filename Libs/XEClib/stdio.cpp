@@ -277,6 +277,8 @@ int sprintf(char* output, const char* format, ...) {
 	len = _xeprint(output, MAX_STRING_LENGTH, format, list);
 	va_end(list);
 	return len;
+
+	return 0;
 }
 
 int snprintf(char* output, size_t sz, const char* format, ...) {

@@ -39,14 +39,13 @@
 #include <_null.h>
 #include <Hal/x86_64_hal.h>
 #include <Fs/pipe.h>
-#include <Cap/capability.h>
 
 /*
  * OpenFile -- opens a file for user process
  * @param file -- file path
  * @param mode -- mode of the file
  */
-int OpenFile(char* filename, int mode) { SeTextOut("<<<<<<<<<< OPENFILE HIT >>>>>>>>>>\r\n");
+int OpenFile(char* filename, int mode) {
 	x64_cli();
 	AuThread* current_thr = AuGetCurrentThread();
 	if (!current_thr)
@@ -86,33 +85,8 @@ int OpenFile(char* filename, int mode) { SeTextOut("<<<<<<<<<< OPENFILE HIT >>>>
 			file->open(file, NULL);
 
 	current_proc->fds[fd] = file;
-
-	/*
- 	* Bind a capability to the newly allocated fd.
-	 */
-	CapRights rights = CAP_SEEK;
-	
-	if (mode & FILE_OPEN_READ_ONLY)
-    	rights |= CAP_READ;
-
-	if (mode & (FILE_OPEN_WRITE | FILE_OPEN_CREAT))
-    	rights |= CAP_WRITE;
-
-	/* Preserve existing default behaviour. */
-	if (mode == 0)
-   	 rights |= CAP_READ;
-
-	BordoisilaCapCreate(
-    	current_proc,
-    	fd,
-    	file,
-    	CAP_OBJ_FILE,
-    	rights);
-	
-	SeTextOut("[CAP] Capability created fd=%d rights=%x\r\n", fd, rights);
-
 	return fd;
-	}
+}
 
 /*
  * FileSetOffset -- set a offset inorder to read the
@@ -177,12 +151,9 @@ size_t ReadFile(int fd, void* buffer, size_t length) {
 
 	//SeTextOut("Reading from file -> %d -> %x \r\n", fd, file);
 	if (!file)
-   	 return 0;
-
-	if (!BordoisilaCapCheckRights(current_proc, fd, CAP_READ))
-    	return 0;
-
-	size_t ret_bytes = 0;	
+		return 0;
+	size_t ret_bytes = 0;
+	
 	/* every general file will contain its
 	 * file system node as device */
 	AuVFSNode* fsys = (AuVFSNode*)file->device;
@@ -236,12 +207,10 @@ size_t WriteFile(int fd, void* buffer, size_t length) {
 	uint8_t* aligned_buffer = (uint8_t*)buffer;
 	if (!file)
 		return 0;
-
-	if (!BordoisilaCapCheckRights(current_proc, fd, CAP_WRITE))
-    	return 0;
-
+	size_t write_bytes = 0;
+	size_t ret_bytes;
 	/* every general file will contain its
- 	* file system node as device */
+	* file system node as device */
 	AuVFSNode* fsys = (AuVFSNode*)file->device;
 
 	if (file->flags & FS_FLAG_GENERAL && !(file->flags & FS_FLAG_TTY)) {
@@ -339,10 +308,9 @@ int CloseFile(int fd) {
 
 	AuVFSNode* file = current_proc->fds[fd];
 	if (file->flags & FS_FLAG_FILE_SYSTEM){
-    	SeTextOut("Closing fs -> %s \r\n", file->filename);
-    	BordoisilaCapDestroy(current_proc, fd);
-    	current_proc->fds[fd] = 0;
-    	return -1;
+		SeTextOut("Closing fs -> %s \r\n", file->filename);
+		current_proc->fds[fd] = 0;
+		return -1;
 	}
 	if (file->flags & FS_FLAG_GENERAL){
 		kfree(file);
@@ -358,7 +326,6 @@ int CloseFile(int fd) {
 			file->close(file, file);
 	}
 
-	BordoisilaCapDestroy(current_proc, fd);
 	current_proc->fds[fd] = 0;
 	return 0;
 }
