@@ -83,6 +83,7 @@ typedef struct _ChSharedWin_ {
 	int height;
 	bool alpha;
 	bool hide;
+	bool zoomed;
 	double alphaValue;
 	bool windowReady;
 } ChSharedWinInfo;

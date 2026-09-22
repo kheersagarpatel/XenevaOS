@@ -77,6 +77,7 @@ typedef struct _win_info_ {
 	int height;
 	bool alpha;
 	bool hide;
+	bool zoomed;
 	double alphaValue;
 	bool windowReady;
 } WinSharedInfo;

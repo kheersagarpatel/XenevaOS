@@ -42,6 +42,14 @@
 #include "surface.h"
 
 /**
+ * @brief compose_window_zoomed -- composes a zoomed window
+ * @param canvas -- Pointer to Deodhai canvas
+ * @param win -- Pointer to window
+ * @param info -- Pointer to window shared info
+ */
+extern void compose_window_zoomed(ChCanvas* canvas, Window* win, WinSharedInfo* info);
+
+/**
  * @brief Check for small area updates !! not entire window
 */
 extern void

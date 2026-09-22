@@ -149,6 +149,15 @@ void ChGlobalMinimiseAction(ChWindow* win, ChWinGlobalControl* ctl) {
 	ChWindowHide(win);
 }
 
+void ChGlobalMaximiseAction(ChWindow* win, ChWinGlobalControl* ctl) {
+	if (win->info->zoomed) {
+		win->info->zoomed = false;
+	} else {
+		win->info->zoomed = true;
+	}
+	ChWindowUpdate(win, 0, 0, win->info->width, win->info->height, true, true);
+}
+
 /*
  * ChCreateWindow -- create a new chitralekha window
  * @param app -- pointer to Chitralekha app
@@ -222,6 +231,7 @@ ChCreateWindow(ChitralekhaApp* app, uint16_t attrib, char* title, int x, int y, 
 	maxim->hoverOutlineColor = 0xFFAFA3A3;
 	maxim->clickedOutlineColor = 0xFF444444;
 	maxim->ChGlobalMouseEvent = ChGlobalCtlMouseHandler;
+	maxim->ChGlobalActionEvent = ChGlobalMaximiseAction;
 
 	ChWinGlobalControl* minim = ChCreateGlobalButton(win,
 													 win->info->width - 25 - 20 * 2,

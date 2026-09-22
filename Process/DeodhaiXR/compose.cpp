@@ -151,6 +151,44 @@ static int window_clip_bottom(ChCanvas* canvas, Window* win) {
 /**
  * @brief Check for small area updates !! not entire window
 */
+void compose_window_zoomed(ChCanvas* canvas, Window* win, WinSharedInfo* info) {
+	if (info->width <= 0 || info->height <= 0 || canvas->canvasWidth <= 0 || canvas->canvasHeight <= 0)
+		return;
+
+	int cw = canvas->canvasWidth;
+	int ch = canvas->canvasHeight;
+	int ww = info->width;
+	int wh = info->height;
+
+	if (info->alpha) {
+		for (int y = 0; y < ch; y++) {
+			int src_y = (y * wh) / ch;
+			if (src_y >= wh) src_y = wh - 1;
+			for (int x = 0; x < cw; x++) {
+				int src_x = (x * ww) / cw;
+				if (src_x >= ww) src_x = ww - 1;
+
+				uint32_t src = *((uint32_t*)(win->backBuffer + src_y * ww + src_x));
+				uint32_t* dst = (uint32_t*)(canvas->buffer + y * cw + x);
+				*dst = ChColorAlphaBlend(*dst, src, info->alphaValue);
+			}
+		}
+	} else {
+		for (int y = 0; y < ch; y++) {
+			int src_y = (y * wh) / ch;
+			if (src_y >= wh) src_y = wh - 1;
+			for (int x = 0; x < cw; x++) {
+				int src_x = (x * ww) / cw;
+				if (src_x >= ww) src_x = ww - 1;
+
+				uint32_t src = *((uint32_t*)(win->backBuffer + src_y * ww + src_x));
+				uint32_t* dst = (uint32_t*)(canvas->buffer + y * cw + x);
+				*dst = ChColorAlphaBlend2(*dst, src);
+			}
+		}
+	}
+}
+
 void _compose_dirty_area_(ChCanvas* canvas, Window* win, Window* focusedWin, WinSharedInfo* info) {
 	Window* alwaysOnTop = _get_always_on_top();
 
