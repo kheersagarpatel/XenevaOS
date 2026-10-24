@@ -320,6 +320,46 @@ static void RenderSplashScreen(ChCanvas* canv) {
     ChFontDrawText(canv, app->baseFont, (char*)"Click anywhere to start", cx - 65, by + 200, 10, 0xFF81C784);
 }
 
+static void RenderSplashCurtain(ChCanvas* canv, float alpha) {
+    if (alpha <= 0.0f) return;
+    int totalH = WINDOW_HEIGHT - 26;
+    int halfH = totalH / 2;
+    int curH = (int)(halfH * alpha);
+    int centerY = 26 + halfH;
+
+    // Top curtain
+    int topY = centerY - curH;
+    ChDrawRect(canv, 0, topY, WINDOW_WIDTH, curH, 0xFF083D1B);
+    ChDrawHorizontalLine(canv, 0, centerY - 1, WINDOW_WIDTH, COLOR_CARD_SELECT_GLOW);
+
+    // Bottom curtain
+    ChDrawRect(canv, 0, centerY, WINDOW_WIDTH, curH, 0xFF083D1B);
+    ChDrawHorizontalLine(canv, 0, centerY, WINDOW_WIDTH, COLOR_CARD_SELECT_GLOW);
+
+    // If curtain is sufficiently open, show the central emblem
+    if (alpha > 0.45f) {
+        int cx = WINDOW_WIDTH / 2;
+        int bw = 460, bh = 240;
+        int bx = cx - bw / 2;
+        int by = centerY - bh / 2;
+
+        if (by >= topY && (by + bh) <= (centerY + curH)) {
+            DrawRoundedRect(canv, bx, by, bw, bh, 12, 0xFF052B13);
+            ChDrawRectUnfilled(canv, bx, by, bw, bh, COLOR_CARD_SELECT_GLOW);
+            ChDrawRectUnfilled(canv, bx + 4, by + 4, bw - 8, bh - 8, COLOR_TOPBAR_BORDER);
+
+            DrawSuitGlyph(canv, CARD_SUIT_SPADES, cx - 75, by + 40, 14, 0xFFFFFFFF);
+            DrawSuitGlyph(canv, CARD_SUIT_HEARTS, cx - 25, by + 40, 14, COLOR_RED_SUIT);
+            DrawSuitGlyph(canv, CARD_SUIT_CLUBS, cx + 25, by + 40, 14, 0xFFFFFFFF);
+            DrawSuitGlyph(canv, CARD_SUIT_DIAMONDS, cx + 75, by + 40, 14, COLOR_RED_SUIT);
+
+            ChFontDrawText(canv, app->baseFont, (char*)"K N O W I V A T E", cx - 70, by + 80, 14, 0xFFE0E0E0);
+            ChFontDrawText(canv, app->baseFont, (char*)"S O L I T A I R E", cx - 90, by + 120, 22, COLOR_CARD_SELECT_GLOW);
+            ChFontDrawText(canv, app->baseFont, (char*)"Classic Klondike  *  XenevaOS Edition", cx - 110, by + 165, 11, 0xFFB0BEC5);
+        }
+    }
+}
+
 void SolitaireHandleMouse(int btn, int x, int y) {
     if (btn != 1) return; // Only process left-click down
 
@@ -545,8 +585,12 @@ int main(int argc, char* argv[]) {
         SolitaireUpdateCascade();
 
         // Render Frame
-        if (game.splashState != SPLASH_DONE) {
+        if (game.splashState == SPLASH_HOLD) {
             RenderSplashScreen(mainWin->canv);
+        } else if (game.splashState == SPLASH_FADE_OUT) {
+            RenderTopBar(mainWin->canv);
+            RenderGameBoard(mainWin->canv);
+            RenderSplashCurtain(mainWin->canv, game.splashAlpha);
         } else {
             RenderTopBar(mainWin->canv);
             RenderGameBoard(mainWin->canv);
