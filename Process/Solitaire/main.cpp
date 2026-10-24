@@ -18,8 +18,90 @@
 #include <font.h>
 #include <widgets/window.h>
 #include <widgets/base.h>
+#include <math.h>
+#include <audio/audio.h>
 
 #include "solitaire.h"
+
+#define SOUND_CARD_SNAP   1
+#define SOUND_CARD_DRAW   2
+#define SOUND_VICTORY     3
+#define SOUND_SHUFFLE     4
+
+extern ChitralekhaApp* app;
+static DeodhaiAudioBox* gAudioBox = NULL;
+static bool gAudioInitAttempted = false;
+
+static void SolitaireCheckAudio() {
+    if (gAudioBox || gAudioInitAttempted) return;
+    int pipe = _KeOpenFile((char*)"/pipe/DeodhaiAudio", FILE_OPEN_READ_ONLY);
+    if (pipe == -1) return;
+    _KeCloseFile(pipe);
+
+    gAudioInitAttempted = true;
+    if (app && app->postboxfd > 0) {
+        gAudioBox = DeodhaiAudioOpenConnection(app->postboxfd, DEODHAI_AUDIO_STEREO, DEODHAI_CONNECTION_TYPE_NORMAL);
+    }
+}
+
+static void SolitairePlaySound(int soundId) {
+    SolitaireCheckAudio();
+    if (!gAudioBox || !gAudioBox->ctlPanel) return;
+    if (gAudioBox->ctlPanel->Samplefull) return;
+
+    int16_t buffer[2048];
+    memset(buffer, 0, sizeof(buffer));
+
+    if (soundId == SOUND_CARD_SNAP) {
+        // Crisp card snap onto table (1200Hz falling to 350Hz, sharp exponential decay)
+        for (int i = 0; i < 1024; i++) {
+            float t = (float)i / 1024.0f;
+            float freq = 1200.0f - 850.0f * t;
+            float env = (1.0f - t) * (1.0f - t);
+            if (t > 0.4f) env *= (1.0f - (t - 0.4f) / 0.6f);
+            float phase = 2.0f * (float)M_PI * freq * (float)i / 48000.0f;
+            int16_t s = (int16_t)(sinf(phase) * env * 24000.0f);
+            buffer[i * 2] = s;
+            buffer[i * 2 + 1] = s;
+        }
+    } else if (soundId == SOUND_CARD_DRAW) {
+        // Friction swish / card deal flick (1600Hz falling to 800Hz, quick airy envelope)
+        for (int i = 0; i < 1024; i++) {
+            float t = (float)i / 1024.0f;
+            float freq = 1600.0f - 800.0f * t;
+            float env = sinf(t * (float)M_PI) * (1.0f - t * 0.5f);
+            float phase = 2.0f * (float)M_PI * freq * (float)i / 48000.0f;
+            int16_t s = (int16_t)(sinf(phase) * env * 18000.0f);
+            buffer[i * 2] = s;
+            buffer[i * 2 + 1] = s;
+        }
+    } else if (soundId == SOUND_VICTORY) {
+        // Bright harmonic chime (C-E-G chord)
+        for (int i = 0; i < 1024; i++) {
+            float t = (float)i / 1024.0f;
+            float env = 1.0f - t;
+            float p1 = 2.0f * (float)M_PI * 523.25f * (float)i / 48000.0f; // C5
+            float p2 = 2.0f * (float)M_PI * 659.25f * (float)i / 48000.0f; // E5
+            float p3 = 2.0f * (float)M_PI * 783.99f * (float)i / 48000.0f; // G5
+            int16_t s = (int16_t)((sinf(p1) * 0.4f + sinf(p2) * 0.35f + sinf(p3) * 0.25f) * env * 22000.0f);
+            buffer[i * 2] = s;
+            buffer[i * 2 + 1] = s;
+        }
+    } else if (soundId == SOUND_SHUFFLE) {
+        // Rhythmic deck shuffle ripple
+        for (int i = 0; i < 1024; i++) {
+            float t = (float)i / 1024.0f;
+            float ripple = sinf(t * 32.0f * (float)M_PI);
+            float env = 1.0f - t;
+            float phase = 2.0f * (float)M_PI * 900.0f * (float)i / 48000.0f;
+            int16_t s = (int16_t)(sinf(phase) * ripple * env * 16000.0f);
+            buffer[i * 2] = s;
+            buffer[i * 2 + 1] = s;
+        }
+    }
+
+    DeodhaiAudioWrite(gAudioBox, buffer);
+}
 
 #define WINDOW_WIDTH  720
 #define WINDOW_HEIGHT 520
@@ -682,6 +764,7 @@ static bool DoMoveCards(int srcType, int srcIdx, int srcCardIdx, int dstType, in
     bool moved = SolitaireMoveCards(srcType, srcIdx, srcCardIdx, dstType, dstIdx);
     if (moved && moveCount > 0) {
         StartCardAnimation(tempCards, moveCount, srcX, srcY, dstX, dstY, dstType, dstIdx);
+        SolitairePlaySound(SOUND_CARD_SNAP);
     }
     return moved;
 }
@@ -706,6 +789,7 @@ static bool DoAutoMoveToFoundation(int srcType, int srcIdx, int srcCardIdx) {
     bool moved = SolitaireAutoMoveToFoundation(srcType, srcIdx, srcCardIdx);
     if (moved) {
         StartCardAnimation(&c, 1, srcX, srcY, dstX, dstY, PILE_FOUNDATION, fIdx);
+        SolitairePlaySound(SOUND_CARD_SNAP);
     }
     return moved;
 }
@@ -718,8 +802,10 @@ static void DoStockClick() {
         int dstX = LAYOUT_WASTE_X, dstY = LAYOUT_TOP_Y;
         SolitaireStockClick();
         StartCardAnimation(&c, 1, srcX, srcY, dstX, dstY, PILE_WASTE, 0);
+        SolitairePlaySound(SOUND_CARD_DRAW);
     } else {
         SolitaireStockClick();
+        SolitairePlaySound(SOUND_SHUFFLE);
     }
 }
 
@@ -734,6 +820,7 @@ void SolitaireHandleMouse(int x, int y, int btn) {
     if (game.splashState != SPLASH_DONE) {
         game.splashState = SPLASH_DONE;
         game.splashAlpha = 0.0f;
+        SolitairePlaySound(SOUND_CARD_DRAW);
         return;
     }
 
@@ -747,6 +834,7 @@ void SolitaireHandleMouse(int x, int y, int btn) {
         int btnY = dlgY + 86;
         if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
             SolitaireRestart();
+            SolitairePlaySound(SOUND_SHUFFLE);
             return;
         }
     }
@@ -758,17 +846,20 @@ void SolitaireHandleMouse(int x, int y, int btn) {
             uint32_t newSeed = game.initialSeed + 997 + (uint32_t)frameCounter;
             SolitaireInit(newSeed);
             game.splashState = SPLASH_DONE;
+            SolitairePlaySound(SOUND_SHUFFLE);
             return;
         }
         // "Restart": x=108..183
         if (x >= 108 && x <= 183) {
             SolitaireRestart();
+            SolitairePlaySound(SOUND_SHUFFLE);
             return;
         }
         // "Undo": x=191..256
         if (x >= 191 && x <= 256) {
             if (SolitaireCanUndo()) {
                 SolitaireUndo();
+                SolitairePlaySound(SOUND_CARD_SNAP);
             }
             return;
         }
@@ -1001,6 +1092,14 @@ int main(int argc, char* argv[]) {
         SolitaireUpdateSplash();
         SolitaireUpdateCascade();
         UpdateCardAnimations();
+
+        static bool victorySoundPlayed = false;
+        if (game.celebrationActive && !victorySoundPlayed) {
+            victorySoundPlayed = true;
+            SolitairePlaySound(SOUND_VICTORY);
+        } else if (!game.celebrationActive) {
+            victorySoundPlayed = false;
+        }
 
         // Render Frame
         if (game.splashState == SPLASH_HOLD) {
