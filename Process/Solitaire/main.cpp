@@ -651,6 +651,28 @@ static void RenderGameBoard(ChCanvas* canv) {
     }
 }
 
+static void DrawCenteredSubtitle(ChCanvas* canv, int cx, int y, uint32_t color) {
+    char s1[] = "Classic Klondike";
+    char s2[] = "XenevaOS Edition";
+    int w1 = (int)ChFontGetWidth(app->baseFont, s1);
+    int w2 = (int)ChFontGetWidth(app->baseFont, s2);
+    int gap = 10;
+    int dotR = 2;
+    int totalW = w1 + gap + (dotR * 2) + gap + w2;
+    int startX = cx - totalW / 2;
+
+    // Draw first part: "Classic Klondike"
+    ChFontDrawText(canv, app->baseFont, s1, startX, y, 11, color);
+
+    // Draw perfectly centered middle dot at optical font midpoint
+    int dotX = startX + w1 + gap + dotR;
+    int dotY = y - 4;
+    ChDrawFilledCircle(canv, dotX, dotY, dotR, color);
+
+    // Draw second part: "XenevaOS Edition"
+    ChFontDrawText(canv, app->baseFont, s2, dotX + dotR + gap, y, 11, color);
+}
+
 static void RenderSplashScreen(ChCanvas* canv) {
     // Rich professional casino green splash screen
     ChDrawRect(canv, 0, 26, WINDOW_WIDTH, WINDOW_HEIGHT - 26, 0xFF083D1B);
@@ -680,9 +702,8 @@ static void RenderSplashScreen(ChCanvas* canv) {
     int tw2 = (int)ChFontGetWidth(app->baseFont, (char*)"S O L I T A I R E");
     ChFontDrawText(canv, app->baseFont, (char*)"S O L I T A I R E", cx - tw2 / 2, by + 128, 22, COLOR_CARD_SELECT_GLOW);
 
-    // Subtitle
-    int tw3 = (int)ChFontGetWidth(app->baseFont, (char*)"Classic Klondike  *  XenevaOS Edition");
-    ChFontDrawText(canv, app->baseFont, (char*)"Classic Klondike  *  XenevaOS Edition", cx - tw3 / 2, by + 168, 11, 0xFFB0BEC5);
+    // Subtitle with centered middle dot
+    DrawCenteredSubtitle(canv, cx, by + 168, 0xFFB0BEC5);
 
     // Loading / prompt
     int tw4 = (int)ChFontGetWidth(app->baseFont, (char*)"Click anywhere to start");
@@ -726,8 +747,7 @@ static void RenderSplashCurtain(ChCanvas* canv, float alpha) {
             ChFontDrawText(canv, app->baseFont, (char*)"K N O W I V A T E", cx - tw1 / 2, by + 85, 14, 0xFFE0E0E0);
             int tw2 = (int)ChFontGetWidth(app->baseFont, (char*)"S O L I T A I R E");
             ChFontDrawText(canv, app->baseFont, (char*)"S O L I T A I R E", cx - tw2 / 2, by + 128, 22, COLOR_CARD_SELECT_GLOW);
-            int tw3 = (int)ChFontGetWidth(app->baseFont, (char*)"Classic Klondike  *  XenevaOS Edition");
-            ChFontDrawText(canv, app->baseFont, (char*)"Classic Klondike  *  XenevaOS Edition", cx - tw3 / 2, by + 168, 11, 0xFFB0BEC5);
+            DrawCenteredSubtitle(canv, cx, by + 168, 0xFFB0BEC5);
         }
     }
 }
