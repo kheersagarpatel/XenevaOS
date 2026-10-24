@@ -152,6 +152,23 @@ static int lastClickX = -1;
 static int lastClickY = -1;
 static CardAnimation activeAnims[MAX_CARD_ANIMATIONS];
 
+struct DragState {
+    bool active;
+    bool isDragging;
+    int srcType;
+    int srcIdx;
+    int srcCardIdx;
+    int grabOriginX, grabOriginY;
+    int mousePressX, mousePressY;
+    int dragOffsetX, dragOffsetY;
+    int currentX, currentY;
+    int count;
+    Card cards[13];
+    int hoverTargetType;
+    int hoverTargetIdx;
+};
+static DragState dragState;
+
 static void GetPileCardPos(int pileType, int pileIndex, int cardIndex, int* outX, int* outY) {
     if (pileType == PILE_STOCK) {
         *outX = LAYOUT_STOCK_X;
@@ -554,7 +571,8 @@ static void RenderGameBoard(ChCanvas* canv) {
     int xWaste = LAYOUT_WASTE_X;
     DrawSlotOutline(canv, xWaste, yTop, -1);
     int animWaste = GetAnimatingCountForPile(PILE_WASTE, 0);
-    int visibleWaste = game.waste.count - animWaste;
+    int dragWaste = (dragState.isDragging && dragState.srcType == PILE_WASTE) ? 1 : 0;
+    int visibleWaste = game.waste.count - animWaste - dragWaste;
     if (visibleWaste > 0) {
         bool sel = (game.selectedPileType == PILE_WASTE);
         DrawCard(canv, game.waste.cards[visibleWaste - 1], xWaste, yTop, sel);
@@ -565,7 +583,8 @@ static void RenderGameBoard(ChCanvas* canv) {
         int xF = LAYOUT_FOUND_BASE_X + f * LAYOUT_FOUND_STEP;
         DrawSlotOutline(canv, xF, yTop, f);
         int animF = GetAnimatingCountForPile(PILE_FOUNDATION, f);
-        int visibleF = game.foundations[f].count - animF;
+        int dragF = (dragState.isDragging && dragState.srcType == PILE_FOUNDATION && dragState.srcIdx == f) ? 1 : 0;
+        int visibleF = game.foundations[f].count - animF - dragF;
         if (visibleF > 0) {
             bool sel = (game.selectedPileType == PILE_FOUNDATION && game.selectedPileIndex == f);
             DrawCard(canv, game.foundations[f].cards[visibleF - 1], xF, yTop, sel);
@@ -578,7 +597,8 @@ static void RenderGameBoard(ChCanvas* canv) {
         int xCol = LAYOUT_TABLEAU_BASE_X + col * LAYOUT_TABLEAU_STEP;
         CardStack* pile = &game.tableau[col];
         int animCol = GetAnimatingCountForPile(PILE_TABLEAU, col);
-        int visibleCol = pile->count - animCol;
+        int dragColCount = (dragState.isDragging && dragState.srcType == PILE_TABLEAU && dragState.srcIdx == col) ? dragState.count : 0;
+        int visibleCol = pile->count - animCol - dragColCount;
 
         if (visibleCol <= 0) {
             DrawSlotOutline(canv, xCol, yTableauBase, -1);
@@ -596,7 +616,49 @@ static void RenderGameBoard(ChCanvas* canv) {
         }
     }
 
-    // 5. In-flight animated cards rendered on top of table with drop shadow
+    // 5. Hover outline on valid destination target while dragging
+    if (dragState.isDragging && dragState.hoverTargetType != PILE_NONE) {
+        if (dragState.hoverTargetType == PILE_FOUNDATION && dragState.hoverTargetIdx >= 0 && dragState.hoverTargetIdx < FOUNDATION_COUNT) {
+            int hxF = LAYOUT_FOUND_BASE_X + dragState.hoverTargetIdx * LAYOUT_FOUND_STEP;
+            ChDrawRectUnfilled(canv, hxF - 2, yTop - 2, CARD_WIDTH + 4, CARD_HEIGHT + 4, 0xFF22C55E);
+            ChDrawRectUnfilled(canv, hxF - 1, yTop - 1, CARD_WIDTH + 2, CARD_HEIGHT + 2, 0xFF22C55E);
+        } else if (dragState.hoverTargetType == PILE_TABLEAU && dragState.hoverTargetIdx >= 0 && dragState.hoverTargetIdx < TABLEAU_COUNT) {
+            int hCol = dragState.hoverTargetIdx;
+            int hxCol = LAYOUT_TABLEAU_BASE_X + hCol * LAYOUT_TABLEAU_STEP;
+            int targetY = yTableauBase;
+            CardStack* pile = &game.tableau[hCol];
+            int effCount = pile->count;
+            if (dragState.srcType == PILE_TABLEAU && dragState.srcIdx == hCol) {
+                effCount -= dragState.count;
+            }
+            if (effCount > 0) {
+                for (int r = 0; r < effCount - 1; r++) {
+                    targetY += pile->cards[r].faceUp ? 24 : 14;
+                }
+            }
+            ChDrawRectUnfilled(canv, hxCol - 2, targetY - 2, CARD_WIDTH + 4, CARD_HEIGHT + 4, 0xFF22C55E);
+            ChDrawRectUnfilled(canv, hxCol - 1, targetY - 1, CARD_WIDTH + 2, CARD_HEIGHT + 2, 0xFF22C55E);
+        }
+    }
+
+    // 6. Floating dragged cards rendered with elevated shadow
+    if (dragState.isDragging && dragState.count > 0) {
+        int curX = dragState.currentX;
+        int curY = dragState.currentY;
+        int totalH = CARD_HEIGHT + (dragState.count - 1) * 24;
+
+        // Elevated soft drop-shadow
+        DrawRoundedRect(canv, curX + 5, curY + 6, CARD_WIDTH, totalH, 6, 0xFF052B13);
+
+        // Draw cards in dragged stack
+        int cardY = curY;
+        for (int c = 0; c < dragState.count; c++) {
+            DrawCard(canv, dragState.cards[c], curX, cardY, false);
+            cardY += 24;
+        }
+    }
+
+    // 7. In-flight animated cards rendered on top of table with drop shadow
     for (int a = 0; a < MAX_CARD_ANIMATIONS; a++) {
         if (!activeAnims[a].active) continue;
         float t = (float)activeAnims[a].currentFrame / (float)activeAnims[a].totalFrames;
@@ -829,63 +891,83 @@ static void DoStockClick() {
     }
 }
 
-void SolitaireHandleMouse(int x, int y, int btn) {
-    static int prevBtn = 0;
-    bool isClickDown = (btn == 1 && prevBtn == 0);
-    prevBtn = btn;
+static void UpdateDragHoverTarget() {
+    dragState.hoverTargetType = PILE_NONE;
+    dragState.hoverTargetIdx = -1;
 
-    if (!isClickDown) return; // Only trigger on leading edge of left click
+    if (!dragState.isDragging || dragState.count <= 0) return;
 
-    // 1. If in splash screen, click immediately completes splash
-    if (game.splashState != SPLASH_DONE) {
-        game.splashState = SPLASH_DONE;
-        game.splashAlpha = 0.0f;
-        SolitairePlaySound(SOUND_CARD_DRAW);
-        return;
-    }
+    Card leadCard = dragState.cards[0];
+    int dragX = dragState.currentX;
+    int dragY = dragState.currentY;
+    int dragCenterX = dragX + CARD_WIDTH / 2;
+    int dragCenterY = dragY + CARD_HEIGHT / 2;
 
-    // 2. If celebration dialog active, check "Play Again" button
-    if (game.celebrationActive) {
-        int dlgW = 340, dlgH = 140;
-        int dlgX = (WINDOW_WIDTH - dlgW) / 2;
-        int dlgY = (WINDOW_HEIGHT - dlgH) / 2;
-        int btnW = 130, btnH = 32;
-        int btnX = dlgX + (dlgW - btnW) / 2;
-        int btnY = dlgY + 86;
-        if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
-            SolitaireRestart();
-            SolitairePlaySound(SOUND_SHUFFLE);
-            return;
-        }
-    }
+    // 1. Check foundations (only valid if single card)
+    if (dragState.count == 1) {
+        for (int f = 0; f < FOUNDATION_COUNT; f++) {
+            int xF = LAYOUT_FOUND_BASE_X + f * LAYOUT_FOUND_STEP;
+            int yF = LAYOUT_TOP_Y;
 
-    // 3. Top bar buttons (y=34..60)
-    if (y >= 30 && y <= 64) {
-        // "New Game": x=15..100
-        if (x >= 15 && x <= 100) {
-            uint32_t newSeed = game.initialSeed + 997 + (uint32_t)frameCounter;
-            SolitaireInit(newSeed);
-            game.splashState = SPLASH_DONE;
-            SolitairePlaySound(SOUND_SHUFFLE);
-            return;
-        }
-        // "Restart": x=108..183
-        if (x >= 108 && x <= 183) {
-            SolitaireRestart();
-            SolitairePlaySound(SOUND_SHUFFLE);
-            return;
-        }
-        // "Undo": x=191..256
-        if (x >= 191 && x <= 256) {
-            if (SolitaireCanUndo()) {
-                SolitaireUndo();
-                SolitairePlaySound(SOUND_CARD_SNAP);
+            bool xOverlap = (dragX + CARD_WIDTH > xF - 8) && (dragX < xF + CARD_WIDTH + 8);
+            bool yOverlap = (dragY + CARD_HEIGHT > yF - 8) && (dragY < yF + CARD_HEIGHT + 8);
+            bool centerInside = (dragCenterX >= xF - 12 && dragCenterX <= xF + CARD_WIDTH + 12 &&
+                                 dragCenterY >= yF - 12 && dragCenterY <= yF + CARD_HEIGHT + 12);
+
+            if ((xOverlap && yOverlap) || centerInside) {
+                if (SolitaireCanMoveToFoundation(leadCard, f)) {
+                    dragState.hoverTargetType = PILE_FOUNDATION;
+                    dragState.hoverTargetIdx = f;
+                    return;
+                }
             }
-            return;
         }
     }
 
-    // Double-click detection (within 24 frames ≈ 400ms and 12px distance)
+    // 2. Check tableau columns
+    int bestCol = -1;
+    int bestDist = 999999;
+
+    for (int col = 0; col < TABLEAU_COUNT; col++) {
+        if (dragState.srcType == PILE_TABLEAU && dragState.srcIdx == col) continue;
+
+        int xCol = LAYOUT_TABLEAU_BASE_X + col * LAYOUT_TABLEAU_STEP;
+        CardStack* pile = &game.tableau[col];
+
+        int landingY = LAYOUT_TABLEAU_BASE_Y;
+        for (int r = 0; r < pile->count; r++) {
+            landingY += pile->cards[r].faceUp ? 24 : 14;
+        }
+
+        int colTop = LAYOUT_TABLEAU_BASE_Y - 14;
+        int colBottom = landingY + CARD_HEIGHT + 35;
+        int colLeft = xCol - 15;
+        int colRight = xCol + CARD_WIDTH + 15;
+
+        bool xOverlap = (dragX + CARD_WIDTH > colLeft) && (dragX < colRight);
+        bool yOverlap = (dragY + CARD_HEIGHT > colTop) && (dragY < colBottom);
+        bool centerInside = (dragCenterX >= colLeft && dragCenterX <= colRight &&
+                             dragCenterY >= colTop && dragCenterY <= colBottom);
+
+        if ((xOverlap && yOverlap) || centerInside) {
+            if (SolitaireCanMoveToTableau(leadCard, col)) {
+                int dist = (dragCenterX - (xCol + CARD_WIDTH / 2)) * (dragCenterX - (xCol + CARD_WIDTH / 2)) +
+                           (dragCenterY - (landingY + CARD_HEIGHT / 2)) * (dragCenterY - (landingY + CARD_HEIGHT / 2));
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestCol = col;
+                }
+            }
+        }
+    }
+
+    if (bestCol != -1) {
+        dragState.hoverTargetType = PILE_TABLEAU;
+        dragState.hoverTargetIdx = bestCol;
+    }
+}
+
+static void HandleCardClick(int x, int y, int hitType, int hitIdx, int hitCardIdx) {
     bool isDoubleClick = false;
     if ((frameCounter - (int)lastClickFrame) <= 24 &&
         abs(x - lastClickX) <= 12 && abs(y - lastClickY) <= 12) {
@@ -895,143 +977,347 @@ void SolitaireHandleMouse(int x, int y, int btn) {
     lastClickX = x;
     lastClickY = y;
 
-    // 4. Stock Pile (x=LAYOUT_STOCK_X..+CARD_WIDTH, y=LAYOUT_TOP_Y..+CARD_HEIGHT)
-    if (x >= LAYOUT_STOCK_X && x <= (LAYOUT_STOCK_X + CARD_WIDTH) &&
-        y >= LAYOUT_TOP_Y && y <= (LAYOUT_TOP_Y + CARD_HEIGHT)) {
-        DoStockClick();
+    if (isDoubleClick && hitType != PILE_NONE) {
+        if (DoAutoMoveToFoundation(hitType, hitIdx, hitCardIdx)) {
+            game.selectedPileType = PILE_NONE;
+            game.selectedPileIndex = -1;
+            game.selectedCardIndex = -1;
+            return;
+        }
+    }
+
+    if (hitType == PILE_WASTE) {
+        if (game.selectedPileType == PILE_WASTE) {
+            game.selectedPileType = PILE_NONE;
+            game.selectedPileIndex = -1;
+            game.selectedCardIndex = -1;
+        } else {
+            game.selectedPileType = PILE_WASTE;
+            game.selectedPileIndex = 0;
+            game.selectedCardIndex = game.waste.count - 1;
+        }
+    } else if (hitType == PILE_FOUNDATION) {
+        if (game.selectedPileType == PILE_FOUNDATION && game.selectedPileIndex == hitIdx) {
+            game.selectedPileType = PILE_NONE;
+            game.selectedPileIndex = -1;
+            game.selectedCardIndex = -1;
+        } else {
+            game.selectedPileType = PILE_FOUNDATION;
+            game.selectedPileIndex = hitIdx;
+            game.selectedCardIndex = game.foundations[hitIdx].count - 1;
+        }
+    } else if (hitType == PILE_TABLEAU) {
+        if (game.selectedPileType == PILE_TABLEAU &&
+            game.selectedPileIndex == hitIdx &&
+            game.selectedCardIndex == hitCardIdx) {
+            game.selectedPileType = PILE_NONE;
+            game.selectedPileIndex = -1;
+            game.selectedCardIndex = -1;
+        } else {
+            game.selectedPileType = PILE_TABLEAU;
+            game.selectedPileIndex = hitIdx;
+            game.selectedCardIndex = hitCardIdx;
+        }
+    }
+}
+
+void SolitaireHandleMouse(int x, int y, int btn) {
+    static int prevBtn = 0;
+    bool isClickDown = (btn == 1 && prevBtn == 0);
+    bool isButtonHeld = (btn == 1 && prevBtn == 1);
+    bool isClickUp = (btn == 0 && prevBtn == 1);
+    prevBtn = btn;
+
+    // 1. Splash screen dismiss
+    if (game.splashState != SPLASH_DONE) {
+        if (isClickDown) {
+            game.splashState = SPLASH_DONE;
+            game.splashAlpha = 0.0f;
+            SolitairePlaySound(SOUND_CARD_DRAW);
+        }
         return;
     }
 
-    // 5. Waste Pile (x=LAYOUT_WASTE_X..+CARD_WIDTH, y=LAYOUT_TOP_Y..+CARD_HEIGHT)
-    if (x >= LAYOUT_WASTE_X && x <= (LAYOUT_WASTE_X + CARD_WIDTH) &&
-        y >= LAYOUT_TOP_Y && y <= (LAYOUT_TOP_Y + CARD_HEIGHT)) {
-        if (game.waste.count > 0) {
-            if (isDoubleClick) {
-                // Auto move to foundation
-                if (DoAutoMoveToFoundation(PILE_WASTE, 0, game.waste.count - 1)) {
-                    return;
-                }
-            }
-            // Toggle selection
-            if (game.selectedPileType == PILE_WASTE) {
-                game.selectedPileType = PILE_NONE;
-                game.selectedPileIndex = -1;
-                game.selectedCardIndex = -1;
-            } else {
-                game.selectedPileType = PILE_WASTE;
-                game.selectedPileIndex = 0;
-                game.selectedCardIndex = game.waste.count - 1;
+    // 2. Victory celebration dialog check
+    if (game.celebrationActive) {
+        if (isClickDown) {
+            int dlgW = 340, dlgH = 140;
+            int dlgX = (WINDOW_WIDTH - dlgW) / 2;
+            int dlgY = (WINDOW_HEIGHT - dlgH) / 2;
+            int btnW = 130, btnH = 32;
+            int btnX = dlgX + (dlgW - btnW) / 2;
+            int btnY = dlgY + 86;
+            if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
+                SolitaireRestart();
+                SolitairePlaySound(SOUND_SHUFFLE);
             }
         }
         return;
     }
 
-    // 6. Foundations (f=0..3: x=LAYOUT_FOUND_BASE_X + f*LAYOUT_FOUND_STEP)
-    for (int f = 0; f < FOUNDATION_COUNT; f++) {
-        int xF = LAYOUT_FOUND_BASE_X + f * LAYOUT_FOUND_STEP;
-        if (x >= xF && x <= (xF + CARD_WIDTH) &&
-            y >= LAYOUT_TOP_Y && y <= (LAYOUT_TOP_Y + CARD_HEIGHT)) {
-            if (game.selectedPileType != PILE_NONE) {
-                // Attempt to move selected card to foundation
-                if (DoMoveCards(game.selectedPileType, game.selectedPileIndex, game.selectedCardIndex, PILE_FOUNDATION, f)) {
-                    return;
-                }
-            }
-            // If clicking directly on foundation with cards
-            if (game.foundations[f].count > 0) {
-                if (game.selectedPileType == PILE_FOUNDATION && game.selectedPileIndex == f) {
-                    game.selectedPileType = PILE_NONE;
-                    game.selectedPileIndex = -1;
-                    game.selectedCardIndex = -1;
-                } else {
-                    game.selectedPileType = PILE_FOUNDATION;
-                    game.selectedPileIndex = f;
-                    game.selectedCardIndex = game.foundations[f].count - 1;
-                }
+    // 3. Top bar buttons (New Game, Restart, Undo)
+    if (isClickDown && y >= 30 && y <= 64) {
+        if (x >= 15 && x <= 100) {
+            uint32_t newSeed = game.initialSeed + 997 + (uint32_t)frameCounter;
+            SolitaireInit(newSeed);
+            game.splashState = SPLASH_DONE;
+            SolitairePlaySound(SOUND_SHUFFLE);
+            return;
+        }
+        if (x >= 108 && x <= 183) {
+            SolitaireRestart();
+            SolitairePlaySound(SOUND_SHUFFLE);
+            return;
+        }
+        if (x >= 191 && x <= 256) {
+            if (SolitaireCanUndo()) {
+                SolitaireUndo();
+                SolitairePlaySound(SOUND_CARD_SNAP);
             }
             return;
         }
     }
 
-    // 7. Tableau Columns (col=0..6: x=LAYOUT_TABLEAU_BASE_X + col*LAYOUT_TABLEAU_STEP)
-    for (int col = 0; col < TABLEAU_COUNT; col++) {
-        int xCol = LAYOUT_TABLEAU_BASE_X + col * LAYOUT_TABLEAU_STEP;
-        if (x >= xCol && x <= (xCol + CARD_WIDTH)) {
-            CardStack* pile = &game.tableau[col];
+    // 4. Button-Down: Card grab & click routing
+    if (isClickDown) {
+        // Stock click
+        if (x >= LAYOUT_STOCK_X && x <= (LAYOUT_STOCK_X + CARD_WIDTH) &&
+            y >= LAYOUT_TOP_Y && y <= (LAYOUT_TOP_Y + CARD_HEIGHT)) {
+            DoStockClick();
+            return;
+        }
 
-            // Click on empty tableau slot
-            if (pile->count == 0 && y >= LAYOUT_TABLEAU_BASE_Y && y <= (LAYOUT_TABLEAU_BASE_Y + CARD_HEIGHT)) {
+        // Waste pile grab
+        if (x >= LAYOUT_WASTE_X && x <= (LAYOUT_WASTE_X + CARD_WIDTH) &&
+            y >= LAYOUT_TOP_Y && y <= (LAYOUT_TOP_Y + CARD_HEIGHT)) {
+            if (game.waste.count > 0) {
+                dragState.active = true;
+                dragState.isDragging = false;
+                dragState.srcType = PILE_WASTE;
+                dragState.srcIdx = 0;
+                dragState.srcCardIdx = game.waste.count - 1;
+                dragState.grabOriginX = LAYOUT_WASTE_X;
+                dragState.grabOriginY = LAYOUT_TOP_Y;
+                dragState.mousePressX = x;
+                dragState.mousePressY = y;
+                dragState.dragOffsetX = x - LAYOUT_WASTE_X;
+                dragState.dragOffsetY = y - LAYOUT_TOP_Y;
+                dragState.currentX = LAYOUT_WASTE_X;
+                dragState.currentY = LAYOUT_TOP_Y;
+                dragState.count = 1;
+                dragState.cards[0] = game.waste.cards[game.waste.count - 1];
+                dragState.hoverTargetType = PILE_NONE;
+                dragState.hoverTargetIdx = -1;
+            }
+            return;
+        }
+
+        // Foundations
+        for (int f = 0; f < FOUNDATION_COUNT; f++) {
+            int xF = LAYOUT_FOUND_BASE_X + f * LAYOUT_FOUND_STEP;
+            if (x >= xF && x <= (xF + CARD_WIDTH) &&
+                y >= LAYOUT_TOP_Y && y <= (LAYOUT_TOP_Y + CARD_HEIGHT)) {
                 if (game.selectedPileType != PILE_NONE) {
-                    DoMoveCards(game.selectedPileType, game.selectedPileIndex, game.selectedCardIndex, PILE_TABLEAU, col);
+                    if (DoMoveCards(game.selectedPileType, game.selectedPileIndex, game.selectedCardIndex, PILE_FOUNDATION, f)) {
+                        game.selectedPileType = PILE_NONE;
+                        game.selectedPileIndex = -1;
+                        game.selectedCardIndex = -1;
+                        return;
+                    }
+                }
+                if (game.foundations[f].count > 0) {
+                    dragState.active = true;
+                    dragState.isDragging = false;
+                    dragState.srcType = PILE_FOUNDATION;
+                    dragState.srcIdx = f;
+                    dragState.srcCardIdx = game.foundations[f].count - 1;
+                    dragState.grabOriginX = xF;
+                    dragState.grabOriginY = LAYOUT_TOP_Y;
+                    dragState.mousePressX = x;
+                    dragState.mousePressY = y;
+                    dragState.dragOffsetX = x - xF;
+                    dragState.dragOffsetY = y - LAYOUT_TOP_Y;
+                    dragState.currentX = xF;
+                    dragState.currentY = LAYOUT_TOP_Y;
+                    dragState.count = 1;
+                    dragState.cards[0] = game.foundations[f].cards[game.foundations[f].count - 1];
+                    dragState.hoverTargetType = PILE_NONE;
+                    dragState.hoverTargetIdx = -1;
                 }
                 return;
             }
+        }
 
-            // Click within a non-empty tableau column
-            if (pile->count > 0 && y >= LAYOUT_TABLEAU_BASE_Y) {
-                // Determine which card was clicked from top to bottom
-                int hitCardIdx = -1;
-                int curY = LAYOUT_TABLEAU_BASE_Y;
+        // Tableau Columns
+        for (int col = 0; col < TABLEAU_COUNT; col++) {
+            int xCol = LAYOUT_TABLEAU_BASE_X + col * LAYOUT_TABLEAU_STEP;
+            if (x >= xCol && x <= (xCol + CARD_WIDTH)) {
+                CardStack* pile = &game.tableau[col];
 
-                for (int r = 0; r < pile->count; r++) {
-                    int nextY = curY + (pile->cards[r].faceUp ? 24 : 14);
-                    bool isLast = (r == pile->count - 1);
-                    int cardBottom = isLast ? (curY + CARD_HEIGHT) : nextY;
-
-                    if (y >= curY && y < cardBottom) {
-                        hitCardIdx = r;
-                        break;
+                if (pile->count == 0 && y >= LAYOUT_TABLEAU_BASE_Y && y <= (LAYOUT_TABLEAU_BASE_Y + CARD_HEIGHT)) {
+                    if (game.selectedPileType != PILE_NONE) {
+                        DoMoveCards(game.selectedPileType, game.selectedPileIndex, game.selectedCardIndex, PILE_TABLEAU, col);
+                        game.selectedPileType = PILE_NONE;
+                        game.selectedPileIndex = -1;
+                        game.selectedCardIndex = -1;
                     }
-                    curY = nextY;
+                    return;
                 }
 
-                if (hitCardIdx >= 0) {
-                    Card hitCard = pile->cards[hitCardIdx];
+                if (pile->count > 0 && y >= LAYOUT_TABLEAU_BASE_Y) {
+                    int hitCardIdx = -1;
+                    int curY = LAYOUT_TABLEAU_BASE_Y;
+                    int hitCardY = LAYOUT_TABLEAU_BASE_Y;
 
-                    // If double-clicked on top card, attempt auto-foundation move
-                    if (isDoubleClick && hitCardIdx == pile->count - 1 && hitCard.faceUp) {
-                        if (DoAutoMoveToFoundation(PILE_TABLEAU, col, hitCardIdx)) {
-                            return;
+                    for (int r = 0; r < pile->count; r++) {
+                        int nextY = curY + (pile->cards[r].faceUp ? 24 : 14);
+                        bool isLast = (r == pile->count - 1);
+                        int cardBottom = isLast ? (curY + CARD_HEIGHT) : nextY;
+
+                        if (y >= curY && y < cardBottom) {
+                            hitCardIdx = r;
+                            hitCardY = curY;
+                            break;
                         }
+                        curY = nextY;
                     }
 
-                    // If we already have a selection from another pile, attempt move onto this column
-                    if (game.selectedPileType != PILE_NONE &&
-                        !(game.selectedPileType == PILE_TABLEAU && game.selectedPileIndex == col)) {
-                        if (DoMoveCards(game.selectedPileType, game.selectedPileIndex, game.selectedCardIndex, PILE_TABLEAU, col)) {
-                            return;
-                        }
-                    }
+                    if (hitCardIdx >= 0) {
+                        Card hitCard = pile->cards[hitCardIdx];
 
-                    // Otherwise, toggle select this card (if face up)
-                    if (hitCard.faceUp) {
-                        if (game.selectedPileType == PILE_TABLEAU &&
-                            game.selectedPileIndex == col &&
-                            game.selectedCardIndex == hitCardIdx) {
-                            game.selectedPileType = PILE_NONE;
-                            game.selectedPileIndex = -1;
-                            game.selectedCardIndex = -1;
-                        } else {
-                            game.selectedPileType = PILE_TABLEAU;
-                            game.selectedPileIndex = col;
-                            game.selectedCardIndex = hitCardIdx;
+                        // If already selected another pile, attempt move first
+                        if (game.selectedPileType != PILE_NONE &&
+                            !(game.selectedPileType == PILE_TABLEAU && game.selectedPileIndex == col)) {
+                            if (DoMoveCards(game.selectedPileType, game.selectedPileIndex, game.selectedCardIndex, PILE_TABLEAU, col)) {
+                                game.selectedPileType = PILE_NONE;
+                                game.selectedPileIndex = -1;
+                                game.selectedCardIndex = -1;
+                                return;
+                            }
                         }
+
+                        // Grab face-up card/sub-stack for dragging
+                        if (hitCard.faceUp) {
+                            dragState.active = true;
+                            dragState.isDragging = false;
+                            dragState.srcType = PILE_TABLEAU;
+                            dragState.srcIdx = col;
+                            dragState.srcCardIdx = hitCardIdx;
+                            dragState.grabOriginX = xCol;
+                            dragState.grabOriginY = hitCardY;
+                            dragState.mousePressX = x;
+                            dragState.mousePressY = y;
+                            dragState.dragOffsetX = x - xCol;
+                            dragState.dragOffsetY = y - hitCardY;
+                            dragState.currentX = xCol;
+                            dragState.currentY = hitCardY;
+                            dragState.count = pile->count - hitCardIdx;
+                            if (dragState.count > 13) dragState.count = 13;
+                            for (int i = 0; i < dragState.count; i++) {
+                                dragState.cards[i] = pile->cards[hitCardIdx + i];
+                            }
+                            dragState.hoverTargetType = PILE_NONE;
+                            dragState.hoverTargetIdx = -1;
+                        }
+                        return;
+                    } else if (game.selectedPileType != PILE_NONE &&
+                               !(game.selectedPileType == PILE_TABLEAU && game.selectedPileIndex == col)) {
+                        DoMoveCards(game.selectedPileType, game.selectedPileIndex, game.selectedCardIndex, PILE_TABLEAU, col);
+                        game.selectedPileType = PILE_NONE;
+                        game.selectedPileIndex = -1;
+                        game.selectedCardIndex = -1;
+                        return;
                     }
-                    return;
-                } else if (game.selectedPileType != PILE_NONE &&
-                           !(game.selectedPileType == PILE_TABLEAU && game.selectedPileIndex == col)) {
-                    // Clicked in column below cards: move selected card(s) onto this column
-                    DoMoveCards(game.selectedPileType, game.selectedPileIndex, game.selectedCardIndex, PILE_TABLEAU, col);
-                    return;
                 }
             }
         }
+
+        // Empty table click clears selection
+        game.selectedPileType = PILE_NONE;
+        game.selectedPileIndex = -1;
+        game.selectedCardIndex = -1;
+        return;
     }
 
-    // Clicked on empty table area: clear selection
-    game.selectedPileType = PILE_NONE;
-    game.selectedPileIndex = -1;
-    game.selectedCardIndex = -1;
+    // 5. Button-Held: Move dragging cards & update hover glow
+    if (isButtonHeld && dragState.active) {
+        int dx = x - dragState.mousePressX;
+        int dy = y - dragState.mousePressY;
+        if (!dragState.isDragging && (dx * dx + dy * dy >= 16)) {
+            dragState.isDragging = true;
+            game.selectedPileType = PILE_NONE;
+            game.selectedPileIndex = -1;
+            game.selectedCardIndex = -1;
+        }
+
+        if (dragState.isDragging) {
+            dragState.currentX = x - dragState.dragOffsetX;
+            dragState.currentY = y - dragState.dragOffsetY;
+            UpdateDragHoverTarget();
+        }
+        return;
+    }
+
+    // 6. Button-Up: Drop or tap release
+    if (isClickUp && dragState.active) {
+        if (dragState.isDragging) {
+            UpdateDragHoverTarget();
+
+            if (dragState.hoverTargetType != PILE_NONE) {
+                int dstType = dragState.hoverTargetType;
+                int dstIdx = dragState.hoverTargetIdx;
+                int srcType = dragState.srcType;
+                int srcIdx = dragState.srcIdx;
+                int srcCardIdx = dragState.srcCardIdx;
+                int count = dragState.count;
+
+                int dstCount = (dstType == PILE_TABLEAU) ? game.tableau[dstIdx].count : game.foundations[dstIdx].count;
+                int dstX = 0, dstY = 0;
+                GetPileCardPos(dstType, dstIdx, dstCount, &dstX, &dstY);
+
+                dragState.active = false;
+                dragState.isDragging = false;
+                dragState.hoverTargetType = PILE_NONE;
+                dragState.hoverTargetIdx = -1;
+
+                bool moved = SolitaireMoveCards(srcType, srcIdx, srcCardIdx, dstType, dstIdx);
+                if (moved) {
+                    StartCardAnimation(dragState.cards, count, dragState.currentX, dragState.currentY, dstX, dstY, dstType, dstIdx);
+                    SolitairePlaySound(SOUND_CARD_SNAP);
+                }
+            } else {
+                // Invalid drop: ease-out snapback flight to origin
+                int srcType = dragState.srcType;
+                int srcIdx = dragState.srcIdx;
+                int count = dragState.count;
+                int curX = dragState.currentX;
+                int curY = dragState.currentY;
+                int origX = dragState.grabOriginX;
+                int origY = dragState.grabOriginY;
+
+                dragState.active = false;
+                dragState.isDragging = false;
+                dragState.hoverTargetType = PILE_NONE;
+                dragState.hoverTargetIdx = -1;
+
+                StartCardAnimation(dragState.cards, count, curX, curY, origX, origY, srcType, srcIdx);
+            }
+        } else {
+            // Stationary click without dragging
+            int clickX = dragState.mousePressX;
+            int clickY = dragState.mousePressY;
+            int grabbedType = dragState.srcType;
+            int grabbedIdx = dragState.srcIdx;
+            int grabbedCardIdx = dragState.srcCardIdx;
+
+            dragState.active = false;
+            dragState.isDragging = false;
+            dragState.hoverTargetType = PILE_NONE;
+            dragState.hoverTargetIdx = -1;
+
+            HandleCardClick(clickX, clickY, grabbedType, grabbedIdx, grabbedCardIdx);
+        }
+    }
 }
 
 void WindowHandleMessage(PostEvent* e) {
