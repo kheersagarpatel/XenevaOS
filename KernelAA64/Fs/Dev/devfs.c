@@ -251,16 +251,6 @@ AuVFSNode* AuDevFSOpen(AuVFSNode* fs, char* path) {
 	if (node_to_ret)
 		return node_to_ret;
 
-	UARTDebugOut(
-		"[devfs]: open failed for '%s', container entries=%d\r\n", path, entries->childs->pointer);
-	for (int j = 0; j < (int)entries->childs->pointer; j++) {
-		AuVFSNode* node_ = (AuVFSNode*)list_get_at(entries->childs, j);
-		if (!node_) {
-			UARTDebugOut("[devfs]:   [%d] <null entry>\r\n", j);
-			continue;
-		}
-		UARTDebugOut("[devfs]:   [%d] '%s' flags=%x\r\n", j, node_->filename, node_->flags);
-	}
 	return NULL;
 }
 

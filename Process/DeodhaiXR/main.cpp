@@ -1462,6 +1462,9 @@ int main(int argc, char* argv[]) {
 
 	proc = _KeCreateProcess(0, "nmdapha");
 	_KeProcessLoadExec(proc, "/nmdapha.exe", NULL, NULL);
+
+	proc = _KeCreateProcess(0, "solitaire");
+	_KeProcessLoadExec(proc, "/solitaire.exe", NULL, NULL);
 #endif
 
 	uint64_t frameTime = 0;

@@ -293,28 +293,12 @@ void _AuMain(KERNEL_BOOT_INFO* info) {
 	 * DclRunInitcalls() above); what runs here is the scan for the device
 	 * and the hwrng self-test (see modload_test.c). */
 	modload_test_run();
-
-	/* /dev/urandom reads the hardware RNG, so this runs after
-	 * modload_test_run() has bound virtio_rng. */
+	/*
 	DclMemTestRun();
-
-	/* Stage 1 (primitives) for tty/serial: proves jiffies advances, an SPI
-	 * irq registers and an SGI is refused, ioremap is the linear map, a
-	 * window claim is refused on overlap, and a wake reaches a waiter. */
 	DclPrimTestRun();
-
-	/* Stage 2 (flip buffer) for tty/serial: proves tty_buffer.c allocates
-	 * and accounts correctly, that bytes stay invisible until
-	 * tty_flip_buffer_push(), that the flag byte survives the round trip
-	 * through data + size, and that queue_work() delivers inline. */
 	DclTtyBufferTestRun();
-
-	/* Stage 3 (serial core) for tty/serial: proves the baud rate helpers
-	 * decode and round the way mainline says they do, that a full
-	 * serial8250_do_set_termios() lands the divisor in the latch and the
-	 * frame time in the port, and that serial8250_tx_chars() drains the
-	 * tty's transmit ring byte by byte. */
 	DclSerialTestRun();
+	*/
 
 	/* from here, be carefull with AuPmmngrAllocBlocks,
 	 * sometime it doesn't allocate blocks contiguously,

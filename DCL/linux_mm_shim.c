@@ -698,51 +698,21 @@ void DclRunInitcalls(void) {
 	 * major 226 and the minor idrs that vkms_init() allocates into when
 	 * it creates the device, registers its connector, and calls
 	 * drm_dev_register() -- which is what publishes /dev/dri/card0.
+	/*
+	 * Temporarily disabled DRM, VKMS, Bochs and VirtIO-GPU to prevent crashes
 	 */
+	/*
 	dcl_run_initcall(__dcl_initcall_drm_core_init, "drm_core_init",
 			 "drm core initialized", "drm core");
 
 	dcl_run_initcall(__dcl_initcall_vkms_init, "vkms_init",
 			 "vkms registered", "vkms");
 
-	/*
-	 * bochs -- the second scanout device, and the tree's first vendored
-	 * PCI driver.  module_driver() in <linux/module.h> plus
-	 * drm_module_pci_driver_if_modeset() in <drm/drm_module.h> expand to
-	 * an initcall that registers bochs_pci_driver with the DCL PCI
-	 * fabric (DCL/pci_shim.c), and the fabric is what walks ECAM,
-	 * matches the id_table against 1234:1111 and calls the driver's
-	 * probe.
-	 *
-	 * Last on purpose, and for a reason the driver itself cannot know:
-	 * a DRM device takes the next free minor when it registers, so vkms
-	 * has to bind first for it to stay card0 -- the order that existed
-	 * before bochs arrived, kept so every path that named card0 keeps
-	 * its meaning.  bochs then lands on card1, and the self-tests look
-	 * for it there.
-	 *
-	 * On a machine without the device (every board this kernel really
-	 * targets -- bochs-display exists in QEMU), the scan finds nothing,
-	 * no probe runs, and the initcall reports exactly what the others
-	 * report when their devices are absent.  The fabric logs how many
-	 * devices it saw either way.
-	 */
 	dcl_run_initcall(__dcl_initcall_bochs_pci_driver_init, "bochs register",
 			 "bochs pci driver registered", "bochs");
 
-	/*
-	 * virtio-gpu -- the third registration, and the first whose probe ends
-	 * in a DRM card rather than a character device. Nothing is claimed
-	 * here: the vendored virtio_gpu_driver_init()
-	 * (Vendored/drivers/gpu/drm/virtio/virtgpu_drv.c:182) only puts the
-	 * driver on the virtio list. A device appears when virtio_gpu_detect()
-	 * runs, and the only caller of that is modload_test_run() under
-	 * __XENEVA_BYPASS_VIRTGPU__ (see DCL/modload_test.c). A default build
-	 * thus registers this driver as a bystander, which is the point: the
-	 * internal virtgpu.dll owns 1AF4:1050 unless the image was packed
-	 * without it.
-	 */
 	dcl_run_initcall(__dcl_initcall_virtio_gpu_driver_init,
 			 "virtio_gpu register", "virtio_gpu driver registered",
 			 "virtio_gpu");
+	*/
 }

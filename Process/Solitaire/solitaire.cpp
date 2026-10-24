@@ -10,6 +10,57 @@
 
 SolitaireGame game;
 
+typedef struct _game_snapshot_ {
+    CardStack stock;
+    CardStack waste;
+    CardStack foundations[FOUNDATION_COUNT];
+    CardStack tableau[TABLEAU_COUNT];
+    int score;
+    int moveCount;
+} GameSnapshot;
+
+#define MAX_UNDO 32
+static GameSnapshot undoHistory[MAX_UNDO];
+static int undoCount = 0;
+
+static void SolitaireSaveSnapshot() {
+    if (undoCount < MAX_UNDO) {
+        undoCount++;
+    } else {
+        for (int i = 0; i < MAX_UNDO - 1; i++) {
+            undoHistory[i] = undoHistory[i + 1];
+        }
+    }
+    GameSnapshot* snap = &undoHistory[undoCount - 1];
+    snap->stock = game.stock;
+    snap->waste = game.waste;
+    for (int i = 0; i < FOUNDATION_COUNT; i++) snap->foundations[i] = game.foundations[i];
+    for (int i = 0; i < TABLEAU_COUNT; i++) snap->tableau[i] = game.tableau[i];
+    snap->score = game.score;
+    snap->moveCount = game.moveCount;
+}
+
+bool SolitaireCanUndo() {
+    return undoCount > 0 && !game.isWon;
+}
+
+bool SolitaireUndo() {
+    if (!SolitaireCanUndo()) return false;
+    undoCount--;
+    GameSnapshot* snap = &undoHistory[undoCount];
+    game.stock = snap->stock;
+    game.waste = snap->waste;
+    for (int i = 0; i < FOUNDATION_COUNT; i++) game.foundations[i] = snap->foundations[i];
+    for (int i = 0; i < TABLEAU_COUNT; i++) game.tableau[i] = snap->tableau[i];
+    game.score = snap->score;
+    game.moveCount = snap->moveCount;
+
+    game.selectedPileType = PILE_NONE;
+    game.selectedPileIndex = -1;
+    game.selectedCardIndex = -1;
+    return true;
+}
+
 static uint32_t rng_state = 123456789;
 
 static uint32_t RngNext() {
@@ -26,6 +77,7 @@ void SolitaireInit(uint32_t seed) {
     if (seed == 0) seed = 987654321;
     rng_state = seed;
     game.initialSeed = seed;
+    undoCount = 0;
 
     memset(&game.stock, 0, sizeof(CardStack));
     memset(&game.waste, 0, sizeof(CardStack));
@@ -108,6 +160,8 @@ void SolitaireRestart() {
 
 void SolitaireStockClick() {
     if (game.isWon) return;
+
+    SolitaireSaveSnapshot();
 
     if (game.stock.count > 0) {
         // Draw 1 card from stock to waste
@@ -196,6 +250,8 @@ bool SolitaireMoveCards(int srcType, int srcIdx, int srcCardIdx, int dstType, in
             return false;
         }
 
+        SolitaireSaveSnapshot();
+
         // Perform move
         game.foundations[dstIdx].cards[game.foundations[dstIdx].count++] = movingCard;
         srcStack->count--;
@@ -206,6 +262,8 @@ bool SolitaireMoveCards(int srcType, int srcIdx, int srcCardIdx, int dstType, in
         if (!SolitaireCanMoveToTableau(movingCard, dstIdx)) {
             return false;
         }
+
+        SolitaireSaveSnapshot();
 
         // Perform move of 1 or multiple cards (tableau sequences)
         int moveCount = srcStack->count - srcCardIdx;

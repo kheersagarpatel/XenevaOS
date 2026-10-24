@@ -80,6 +80,10 @@ static void clipd_log(const char* line) {
  * Tried in order rather than derived, because nothing here can walk /dev.
  */
 static int clipd_open_port(void) {
+	static int attempts = 0;
+	if (attempts >= 5)
+		return -1;
+	attempts++;
 	static const char* names[] = {"/dev/vport0p1", "/dev/vport1p1",
 								  "/dev/vport2p1", "/dev/vport3p1"};
 	for (unsigned int i = 0; i < sizeof names / sizeof names[0]; i++) {

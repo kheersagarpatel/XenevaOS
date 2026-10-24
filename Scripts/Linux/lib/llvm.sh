@@ -23,84 +23,76 @@ if [ ! -d ../../gnu-efi ]; then
 fi
 
 # EFI bootloader
-( cd ../../BootAA64 && make clean && make BLEED="${BLEED:-0}" llvm )
+if [ "${CLEAN_BOOT:-0}" -eq 1 ]; then ( cd ../../BootAA64 && make clean ); fi
+( cd ../../BootAA64 && make BLEED="${BLEED:-0}" llvm )
 
 # AArch64 kernel
-    ( cd ../../KernelAA64 && make clean && make BLEED="${BLEED:-0}" GPUSRV="${GPUSRV:-0}" SOAK="${SOAK:-0}" DEBUG_ALLOC="${DEBUG_ALLOC:-0}" STATIC_COMPONENTS="${STATIC_COMPONENTS:-0}" BYPASS_VIRTGPU="${BYPASS_VIRTGPU:-0}" llvm )
+if [ "${CLEAN_KERNEL:-0}" -eq 1 ]; then ( cd ../../KernelAA64 && make clean ); fi
+( cd ../../KernelAA64 && make BLEED="${BLEED:-0}" GPUSRV="${GPUSRV:-0}" SOAK="${SOAK:-0}" DEBUG_ALLOC="${DEBUG_ALLOC:-0}" STATIC_COMPONENTS="${STATIC_COMPONENTS:-0}" BYPASS_VIRTGPU="${BYPASS_VIRTGPU:-0}" llvm )
 
 if [ "${BUILD_USER_APPS:-0}" -eq 1 ]; then
-    # Userspace C++ runtime + graphics library
-    ( cd ../../Libs/XEClib && make clean && make BLEED="${BLEED:-0}" llvm )
-    ( cd ../../Libs/Chitralekha && make clean && make BLEED="${BLEED:-0}" UNIKERNEL="${UNIKERNEL:-0}" llvm )
-    if [ "${NO_NETWORK:-0}" -eq 0 ]; then
+    # Userspace C++ runtime + graphics library (incremental build if already compiled)
+    if [ ! -f ../../Libs/XEClib/libXEClib.a ] || [ "${FORCE_LIBS:-0}" -eq 1 ]; then
+        ( cd ../../Libs/XEClib && make clean && make BLEED="${BLEED:-0}" llvm )
+    fi
+    if [ ! -f ../../Libs/Chitralekha/libChitralekha.a ] || [ "${FORCE_LIBS:-0}" -eq 1 ]; then
+        ( cd ../../Libs/Chitralekha && make clean && make BLEED="${BLEED:-0}" UNIKERNEL="${UNIKERNEL:-0}" llvm )
+    fi
+    if [ "${NO_NETWORK:-0}" -eq 0 ] && [ "${BUILD_ALL_APPS:-0}" -eq 1 ]; then
         ( cd ../../Ports/mbedtls && make clean && make llvm )
     fi
 
-    # All AArch64 user-space applications. Microkernel rule: --no-network
-    # and --no-audio drop their whole userspace (daemons and tools) so a
-    # removed component is never built, deployed, or packed. --axiss
-    APPS=(
-        Init DeodhaiXR Terminal Namdapha XELnch
-        Calender Calculator Files Control XEShell btctl XENotes XEPaints XESheets
-        Clipd dcltest Solitaire
-    )
-    # hwtest unloads the in-kernel sound driver and claims its PCI function from
-    # user space, so it is only built and packed when explicitly requested:
-    #   HWTEST=1 ./Scripts/Linux/build_and_run_qemu.sh --llvm ...
-    if [ "${HWTEST:-0}" -eq 1 ]; then
-        APPS+=(hwtest)
-    fi
-    # sndsrv replaces the in-kernel sound driver with a user-space one; sndplay
-    # plays a test tone through it. Both are opt-in:  SNDSRV=1 ./Scripts/...
-    if [ "${SNDSRV:-0}" -eq 1 ]; then
-        APPS+=(sndsrv sndplay svcmgr)
-        if [ -n "${SVCTEST:-}" ]; then APPS+=(svcdummy); fi    # test-only short-lived service
-    elif [ "${SNDPLAY:-0}" -eq 1 ]; then
-        APPS+=(sndplay)       # tone test against the in-kernel driver
-    fi
-    # inputsrv replaces the kernel's virtio keyboard/tablet drivers with a user-space
-    # one, supervised by svcmgr:  INPUTSRV=1 ./Scripts/Linux/build_and_run_qemu.sh ...
-    if [ "${INPUTSRV:-0}" -eq 1 ]; then
-        APPS+=(inputsrv)
-        if [ "${SNDSRV:-0}" -ne 1 ]; then APPS+=(svcmgr); fi
-    fi
-    # generic IPC test: a daemons-group echo service and an ordinary-app client
-    if [ "${IPCTEST:-0}" -eq 1 ]; then APPS+=(ipcsrv ipctest); fi
-    # user-space file system on /srv plus its two-user test:  SRVTEST=1
-    if [ "${SRVTEST:-0}" -eq 1 ]; then
-        APPS+=(fssrv srvtest)
-        if [ "${SNDSRV:-0}" -ne 1 ] && [ "${INPUTSRV:-0}" -ne 1 ] && [ "${NETSRV:-0}" -ne 1 ]; then APPS+=(svcmgr); fi   # fssrv runs under the supervisor
-    fi
-    # netsrv replaces the kernel's virtio-net driver with a user-space one, supervised
-    # by svcmgr; nettest pings the gateway every 2 s:  NETSRV=1 ./Scripts/...
-    if [ "${NETTEST:-0}" -eq 1 ] && [ "${NETSRV:-0}" -ne 1 ]; then APPS+=(nettest); fi   # probe alone
-    if [ "${NETSRV:-0}" -eq 1 ]; then
-        APPS+=(netsrv nettest)
-        if [ "${SNDSRV:-0}" -ne 1 ] && [ "${INPUTSRV:-0}" -ne 1 ]; then APPS+=(svcmgr); fi
-    fi
-    # gpusrv owns virtio-gpu from user space; the kernel component remains
-    # available only as the supervisor's hand-back fallback.
-    if [ "${GPUSRV:-0}" -eq 1 ]; then
-        APPS+=(gpusrv svcmgr)
-    fi
-    if [ "${NO_AUDIO:-0}" -eq 0 ]; then
-        APPS+=(DeodhaiAudio AudioPlayer)
+    # By default, only build Solitaire for fast workflow iterations.
+    # Set BUILD_ALL_APPS=1 to build the full suite.
+    if [ "${BUILD_ALL_APPS:-0}" -eq 1 ]; then
+        APPS=(
+            Init DeodhaiXR Terminal Namdapha XELnch
+            Calender Calculator Files Control XEShell btctl XENotes XEPaints XESheets
+            Clipd dcltest Solitaire
+        )
+        if [ "${HWTEST:-0}" -eq 1 ]; then APPS+=(hwtest); fi
+        if [ "${SNDSRV:-0}" -eq 1 ]; then
+            APPS+=(sndsrv sndplay svcmgr)
+            if [ -n "${SVCTEST:-}" ]; then APPS+=(svcdummy); fi
+        elif [ "${SNDPLAY:-0}" -eq 1 ]; then
+            APPS+=(sndplay)
+        fi
+        if [ "${INPUTSRV:-0}" -eq 1 ]; then
+            APPS+=(inputsrv)
+            if [ "${SNDSRV:-0}" -ne 1 ]; then APPS+=(svcmgr); fi
+        fi
+        if [ "${IPCTEST:-0}" -eq 1 ]; then APPS+=(ipcsrv ipctest); fi
+        if [ "${SRVTEST:-0}" -eq 1 ]; then
+            APPS+=(fssrv srvtest)
+            if [ "${SNDSRV:-0}" -ne 1 ] && [ "${INPUTSRV:-0}" -ne 1 ] && [ "${NETSRV:-0}" -ne 1 ]; then APPS+=(svcmgr); fi
+        fi
+        if [ "${NETTEST:-0}" -eq 1 ] && [ "${NETSRV:-0}" -ne 1 ]; then APPS+=(nettest); fi
+        if [ "${NETSRV:-0}" -eq 1 ]; then
+            APPS+=(netsrv nettest)
+            if [ "${SNDSRV:-0}" -ne 1 ] && [ "${INPUTSRV:-0}" -ne 1 ]; then APPS+=(svcmgr); fi
+        fi
+        if [ "${GPUSRV:-0}" -eq 1 ]; then APPS+=(gpusrv svcmgr); fi
+        if [ "${NO_AUDIO:-0}" -eq 0 ]; then
+            APPS+=(DeodhaiAudio AudioPlayer)
+        else
+            echo "[llvm] Audio userspace excluded (--no-audio)."
+            rm -f ../../Resources/resources/deoaud.exe ../../Resources/resources/audplr.exe
+        fi
+        if [ "${NO_NETWORK:-0}" -eq 0 ]; then
+            APPS+=(ping udpecho route iptables NETMngr dig nslook Telnet Finger Gopher Ntpd wifictl)
+        else
+            echo "[llvm] Network userspace excluded (--no-network)."
+            rm -f ../../Resources/resources/ping.exe ../../Resources/resources/udpecho.exe \
+                ../../Resources/resources/route.exe ../../Resources/resources/iptable.exe \
+                ../../Resources/resources/netmngr.exe ../../Resources/resources/dig.exe \
+                ../../Resources/resources/nslook.exe ../../Resources/resources/telnet.exe \
+                ../../Resources/resources/finger.exe ../../Resources/resources/gopher.exe \
+                ../../Resources/resources/ntpd.exe ../../Resources/resources/curl.exe \
+                ../../Resources/resources/wifictl.exe \
+                ../../Resources/resources/netsurf.exe
+        fi
     else
-        echo "[llvm] Audio userspace excluded (--no-audio)."
-        rm -f ../../Resources/resources/deoaud.exe ../../Resources/resources/audplr.exe
-    fi
-    if [ "${NO_NETWORK:-0}" -eq 0 ]; then
-        APPS+=(ping udpecho route iptables NETMngr dig nslook Telnet Finger Gopher Ntpd wifictl)
-    else
-        echo "[llvm] Network userspace excluded (--no-network)."
-        rm -f ../../Resources/resources/ping.exe ../../Resources/resources/udpecho.exe \
-            ../../Resources/resources/route.exe ../../Resources/resources/iptable.exe \
-            ../../Resources/resources/netmngr.exe ../../Resources/resources/dig.exe \
-            ../../Resources/resources/nslook.exe ../../Resources/resources/telnet.exe \
-            ../../Resources/resources/finger.exe ../../Resources/resources/gopher.exe \
-            ../../Resources/resources/ntpd.exe ../../Resources/resources/curl.exe \
-            ../../Resources/resources/wifictl.exe \
-            ../../Resources/resources/netsurf.exe
+        APPS=(Solitaire)
     fi
     for app in "${APPS[@]}"; do
         ( cd "../../Process/$app" && make clean && make BLEED="${BLEED:-0}" UNIKERNEL="${UNIKERNEL:-0}" DIRECT_SCANOUT="${DIRECT_SCANOUT:-0}" OPENXR="${OPENXR:-0}" llvm )
@@ -125,6 +117,7 @@ if [ "${BUILD_USER_APPS:-0}" -eq 1 ]; then
     cp -f ../../Process/Clipd/clipd.exe           ../../Resources/resources/
     cp -f ../../Process/dcltest/dcltest.exe       ../../Resources/resources/
     cp -f ../../Process/Solitaire/solitaire.exe   ../../Resources/resources/
+    cp -f ../../Process/Solitaire/solitaire.exe   ../../Resources/resources/solitair.exe
     if [ "${HWTEST:-0}" -eq 1 ]; then
         cp -f ../../Process/hwtest/hwtest.exe     ../../Resources/resources/
     else

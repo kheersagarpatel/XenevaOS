@@ -1149,7 +1149,7 @@ QEMU_ARGS=(
     -monitor unix:/tmp/xeneva-mon.sock,server,nowait
     # Register virtio-gpu first so QEMU's VNC server follows the display the
     # Xeneva compositor drives after boot. ramfb remains as a fallback GOP.
-    -device virtio-gpu-pci,disable-legacy=on,id=gpu0
+    # -device virtio-gpu-pci,disable-legacy=on,id=gpu0
     -device ramfb,id=ramfb
     # Scanout stage: a second, register-only display device for the DRM
     # stack (mainline bochs.c) to own, next to the native virtio-gpu. The

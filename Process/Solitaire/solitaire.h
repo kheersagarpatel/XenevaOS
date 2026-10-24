@@ -102,6 +102,8 @@ bool SolitaireCheckWin();
 void SolitaireUpdateTimerTick();
 void SolitaireUpdateCascade();
 void SolitaireUpdateSplash();
+bool SolitaireCanUndo();
+bool SolitaireUndo();
 
 static inline bool CardIsRed(int suit) {
     return suit == CARD_SUIT_HEARTS || suit == CARD_SUIT_DIAMONDS;

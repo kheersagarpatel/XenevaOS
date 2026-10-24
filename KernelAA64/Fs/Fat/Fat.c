@@ -71,33 +71,28 @@ uint64_t FatClusterToSector32(FatFS* fs, uint64_t cluster) {
 * @param fname_length -- manly 11 buffer[0-8] -- filename, buffer[9-11] -- file extension
 */
 void FatToDOSFilename(const char* filename, char* fname, unsigned int fname_length) {
-	unsigned int i = 0;
-
-	if (fname_length > 11)
-		return;
-
-	if (!fname || !filename)
+	if (fname_length > 11 || !fname || !filename)
 		return;
 
 	memset(fname, ' ', fname_length);
 
-	for (i = 0; i < strlen(filename) && i < fname_length; i++) {
-		if (filename[i] == '.' || i == 8)
-			break;
+	const char* dot = strrchr(filename, '.');
+	size_t name_len = dot ? (size_t)(dot - filename) : strlen(filename);
 
-		fname[i] = toupper(filename[i]);
+	if (name_len > 8) {
+		for (size_t k = 0; k < 6; k++)
+			fname[k] = toupper(filename[k]);
+		fname[6] = '~';
+		fname[7] = '1';
+	} else {
+		for (size_t k = 0; k < name_len && k < 8; k++)
+			fname[k] = toupper(filename[k]);
 	}
 
-	if (filename[i] == '.') {
-		for (int k = 0; k < 3; k++) {
-			++i;
-			if (filename[i])
-				fname[8 + k] = filename[i];
-		}
+	if (dot) {
+		for (int k = 0; k < 3 && dot[k + 1]; k++)
+			fname[8 + k] = toupper(dot[k + 1]);
 	}
-
-	for (i = 0; i < 3; i++)
-		fname[8 + i] = toupper(fname[8 + i]);
 }
 
 /*
