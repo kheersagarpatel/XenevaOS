@@ -29,6 +29,7 @@
 #define SOUND_SHUFFLE     4
 
 extern ChitralekhaApp* app;
+extern void ChWindowPaintTitlebar(ChWindow* win);
 static DeodhaiAudioBox* gAudioBox = NULL;
 static bool gAudioInitAttempted = false;
 
@@ -421,6 +422,7 @@ static void DrawCourtFigure(ChCanvas* canv, Card card, int cx, int cy, uint32_t 
 }
 
 static void DrawCardBack(ChCanvas* canv, int x, int y, int w, int h) {
+    if (y < 26) y = 26;
     // Royal Midnight Navy base
     DrawRoundedRect(canv, x, y, w, h, 6, COLOR_CARD_BACK_BASE);
     ChDrawRectUnfilled(canv, x, y, w, h, COLOR_CARD_BORDER);
@@ -449,6 +451,7 @@ static void DrawCardBack(ChCanvas* canv, int x, int y, int w, int h) {
 }
 
 static void DrawCard(ChCanvas* canv, Card card, int x, int y, bool isSelected) {
+    if (y < 26) y = 26;
     if (!card.faceUp) {
         DrawCardBack(canv, x, y, CARD_WIDTH, CARD_HEIGHT);
         return;
@@ -522,32 +525,40 @@ static void RenderTopBar(ChCanvas* canv) {
     ChFontDrawText(canv, app->baseFont, (char*)"Undo", 191 + (65 - twUndo) / 2, textBaselineY, 11, undoText);
 
     // 4. Metric Capsules (Dark pill capsules)
-    // Moves: x=264, w=78
-    DrawRoundedRect(canv, 264, 34, 78, 26, 4, 0xFF051B0C);
-    ChDrawRectUnfilled(canv, 264, 34, 78, 26, 0xFF164423);
+    // Moves: x=256, w=68
+    DrawRoundedRect(canv, 256, 34, 68, 26, 4, 0xFF051B0C);
+    ChDrawRectUnfilled(canv, 256, 34, 68, 26, 0xFF164423);
     char buf[64];
     sprintf(buf, "Moves: %d", game.moveCount);
     int twMoves = (int)ChFontGetWidth(app->baseFont, buf);
-    ChFontDrawText(canv, app->baseFont, buf, 264 + (78 - twMoves) / 2, textBaselineY, 11, 0xFFE0E0E0);
+    ChFontDrawText(canv, app->baseFont, buf, 256 + (68 - twMoves) / 2, textBaselineY, 10, 0xFFE0E0E0);
 
-    // Score: x=348, w=82
-    DrawRoundedRect(canv, 348, 34, 82, 26, 4, 0xFF051B0C);
-    ChDrawRectUnfilled(canv, 348, 34, 82, 26, 0xFF164423);
+    // Score: x=328, w=72
+    DrawRoundedRect(canv, 328, 34, 72, 26, 4, 0xFF051B0C);
+    ChDrawRectUnfilled(canv, 328, 34, 72, 26, 0xFF164423);
     sprintf(buf, "Score: %d", game.score);
     int twScore = (int)ChFontGetWidth(app->baseFont, buf);
-    ChFontDrawText(canv, app->baseFont, buf, 348 + (82 - twScore) / 2, textBaselineY, 11, 0xFFE0E0E0);
+    ChFontDrawText(canv, app->baseFont, buf, 328 + (72 - twScore) / 2, textBaselineY, 10, 0xFFE0E0E0);
 
-    // Time: x=436, w=72
-    DrawRoundedRect(canv, 436, 34, 72, 26, 4, 0xFF051B0C);
-    ChDrawRectUnfilled(canv, 436, 34, 72, 26, 0xFF164423);
+    // Time: x=404, w=62
+    DrawRoundedRect(canv, 404, 34, 62, 26, 4, 0xFF051B0C);
+    ChDrawRectUnfilled(canv, 404, 34, 62, 26, 0xFF164423);
     int m = game.timeElapsedSec / 60;
     int s = game.timeElapsedSec % 60;
     sprintf(buf, "%02d:%02d", m, s);
     int twTime = (int)ChFontGetWidth(app->baseFont, buf);
-    ChFontDrawText(canv, app->baseFont, buf, 436 + (72 - twTime) / 2, textBaselineY, 11, 0xFFE0E0E0);
+    ChFontDrawText(canv, app->baseFont, buf, 404 + (62 - twTime) / 2, textBaselineY, 10, 0xFFE0E0E0);
+
+    // Shuffles: x=470, w=76
+    DrawRoundedRect(canv, 470, 34, 76, 26, 4, 0xFF051B0C);
+    ChDrawRectUnfilled(canv, 470, 34, 76, 26, 0xFF164423);
+    sprintf(buf, "Shuf: %d/6", 6 - game.recycleCount);
+    int twShuf = (int)ChFontGetWidth(app->baseFont, buf);
+    uint32_t shufCol = (game.recycleCount >= 6) ? 0xFFE57373 : 0xFF81C784;
+    ChFontDrawText(canv, app->baseFont, buf, 470 + (76 - twShuf) / 2, textBaselineY, 10, shufCol);
 
     // 5. Radiant Gold Brand Tag
-    ChFontDrawText(canv, app->baseFont, (char*)"K N O W I V A T E", 540, textBaselineY, 11, 0xFFFFD700);
+    ChFontDrawText(canv, app->baseFont, (char*)"K N O W I V A T E", 562, textBaselineY, 11, 0xFFFFD700);
 }
 
 static void RenderGameBoard(ChCanvas* canv) {
@@ -563,8 +574,23 @@ static void RenderGameBoard(ChCanvas* canv) {
     if (game.stock.count > 0) {
         DrawCard(canv, game.stock.cards[game.stock.count - 1], xStock, yTop, false);
     } else {
-        // Recycle symbol / circle
-        ChDrawCircleUnfilled(canv, xStock + CARD_WIDTH / 2, yTop + CARD_HEIGHT / 2, 12, COLOR_TOPBAR_BORDER);
+        if (game.recycleCount < MAX_RECYCLES) {
+            // Recycle symbol / circle with remaining shuffles
+            ChDrawCircleUnfilled(canv, xStock + CARD_WIDTH / 2, yTop + CARD_HEIGHT / 2 - 4, 12, COLOR_TOPBAR_BORDER);
+            char shBuf[16];
+            sprintf(shBuf, "%d/6", MAX_RECYCLES - game.recycleCount);
+            int shW = (int)ChFontGetWidth(app->baseFont, shBuf);
+            ChFontDrawText(canv, app->baseFont, shBuf, xStock + (CARD_WIDTH - shW) / 2, yTop + CARD_HEIGHT / 2 + 18, 9, 0xFF81C784);
+        } else {
+            // Reached max limit (0/6 left)
+            int cx = xStock + CARD_WIDTH / 2;
+            int cy = yTop + CARD_HEIGHT / 2 - 4;
+            ChDrawLine(canv, cx - 8, cy - 8, cx + 8, cy + 8, 0xFFE53935);
+            ChDrawLine(canv, cx - 8, cy + 8, cx + 8, cy - 8, 0xFFE53935);
+            char shBuf[16] = "0/6";
+            int shW = (int)ChFontGetWidth(app->baseFont, shBuf);
+            ChFontDrawText(canv, app->baseFont, shBuf, xStock + (CARD_WIDTH - shW) / 2, yTop + CARD_HEIGHT / 2 + 18, 9, 0xFFE57373);
+        }
     }
 
     // 2. Waste pile (col 1: x=LAYOUT_WASTE_X)
@@ -885,7 +911,7 @@ static void DoStockClick() {
         SolitaireStockClick();
         StartCardAnimation(&c, 1, srcX, srcY, dstX, dstY, PILE_WASTE, 0);
         SolitairePlaySound(SOUND_CARD_DRAW);
-    } else {
+    } else if (game.waste.count > 0 && game.recycleCount < MAX_RECYCLES) {
         SolitaireStockClick();
         SolitairePlaySound(SOUND_SHUFFLE);
     }
@@ -1251,8 +1277,15 @@ void SolitaireHandleMouse(int x, int y, int btn) {
         }
 
         if (dragState.isDragging) {
-            dragState.currentX = x - dragState.dragOffsetX;
-            dragState.currentY = y - dragState.dragOffsetY;
+            int newX = x - dragState.dragOffsetX;
+            int newY = y - dragState.dragOffsetY;
+            if (newY < 26) newY = 26;
+            if (newY > WINDOW_HEIGHT - 30) newY = WINDOW_HEIGHT - 30;
+            if (newX < 0) newX = 0;
+            if (newX > WINDOW_WIDTH - CARD_WIDTH) newX = WINDOW_WIDTH - CARD_WIDTH;
+
+            dragState.currentX = newX;
+            dragState.currentY = newY;
             UpdateDragHoverTarget();
         }
         return;
@@ -1418,6 +1451,9 @@ int main(int argc, char* argv[]) {
             RenderTopBar(mainWin->canv);
             RenderGameBoard(mainWin->canv);
         }
+
+        // Always keep window titlebar completely clean and pristine
+        ChWindowPaintTitlebar(mainWin);
 
         ChWindowUpdate(mainWin, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 1, 0);
 

@@ -17,6 +17,7 @@ typedef struct _game_snapshot_ {
     CardStack tableau[TABLEAU_COUNT];
     int score;
     int moveCount;
+    int recycleCount;
 } GameSnapshot;
 
 #define MAX_UNDO 32
@@ -38,6 +39,7 @@ static void SolitaireSaveSnapshot() {
     for (int i = 0; i < TABLEAU_COUNT; i++) snap->tableau[i] = game.tableau[i];
     snap->score = game.score;
     snap->moveCount = game.moveCount;
+    snap->recycleCount = game.recycleCount;
 }
 
 bool SolitaireCanUndo() {
@@ -54,6 +56,7 @@ bool SolitaireUndo() {
     for (int i = 0; i < TABLEAU_COUNT; i++) game.tableau[i] = snap->tableau[i];
     game.score = snap->score;
     game.moveCount = snap->moveCount;
+    game.recycleCount = snap->recycleCount;
 
     game.selectedPileType = PILE_NONE;
     game.selectedPileIndex = -1;
@@ -133,6 +136,7 @@ void SolitaireInit(uint32_t seed) {
     game.moveCount = 0;
     game.score = 0;
     game.timeElapsedSec = 0;
+    game.recycleCount = 0;
     game.isWon = false;
     game.autoSolved = false;
 
@@ -161,9 +165,8 @@ void SolitaireRestart() {
 void SolitaireStockClick() {
     if (game.isWon) return;
 
-    SolitaireSaveSnapshot();
-
     if (game.stock.count > 0) {
+        SolitaireSaveSnapshot();
         // Draw 1 card from stock to waste
         Card c = game.stock.cards[--game.stock.count];
         c.faceUp = true;
@@ -171,6 +174,11 @@ void SolitaireStockClick() {
         game.moveCount++;
         game.score = (game.score > 5) ? game.score : 5;
     } else if (game.waste.count > 0) {
+        if (game.recycleCount >= MAX_RECYCLES) {
+            return; // 6-shuffle limit reached
+        }
+        SolitaireSaveSnapshot();
+        game.recycleCount++;
         // Recycle waste to stock (reverse order)
         while (game.waste.count > 0) {
             Card c = game.waste.cards[--game.waste.count];

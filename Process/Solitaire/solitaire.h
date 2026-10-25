@@ -56,6 +56,8 @@ typedef enum _splash_state_ {
     SPLASH_DONE
 } SplashState;
 
+#define MAX_RECYCLES 6
+
 typedef struct _solitaire_game_ {
     CardStack stock;
     CardStack waste;
@@ -71,6 +73,7 @@ typedef struct _solitaire_game_ {
     int moveCount;
     int score;
     int timeElapsedSec;
+    int recycleCount;
     bool isWon;
     bool autoSolved;
 
