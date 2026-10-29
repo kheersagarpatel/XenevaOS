@@ -58,6 +58,17 @@ int xe_http_get(const char* url,
 				xe_http_response* out,
 				size_t max_body);
 
+/* POST with a request body (e.g. application/json).
+ * Returns 0 on a completed 1xx-3xx response, 22 on HTTP
+ * status >= 400 (body still filled), and -1 on network/TLS failure. */
+int xe_http_post(const char* url,
+				 const char* content_type,
+				 const char* body,
+				 size_t body_len,
+				 const char* user_agent,
+				 xe_http_response* out,
+				 size_t max_body);
+
 void xe_http_response_free(xe_http_response* out);
 
 #ifdef __cplusplus

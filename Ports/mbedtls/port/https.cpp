@@ -637,10 +637,12 @@ static int read_body(struct xe_reader* r, int chunked, long content_len, int wan
 }
 
 static int fetch_once(const struct xe_url* u, const char* method, const char* ua,
+					  const char* content_type, const char* post_body, size_t post_body_len,
 					  xe_http_response* out, size_t max_body, char* location, size_t locsz) {
 	struct xe_reader r;
 	int fd;
 	int head_only = method && strcmp(method, "HEAD") == 0;
+	int is_post = method && strcmp(method, "POST") == 0;
 	char req[1600];
 	char hdr[XE_HDR_RAW];
 	const char* te;
@@ -665,13 +667,31 @@ static int fetch_once(const struct xe_url* u, const char* method, const char* ua
 		snprintf(hosthdr, sizeof(hosthdr), "%s", u->host);
 	else
 		snprintf(hosthdr, sizeof(hosthdr), "%s:%u", u->host, u->port);
-	snprintf(req, sizeof(req),
-			 "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: %s\r\nAccept: */*\r\n"
-			 "Connection: close\r\n\r\n",
-			 head_only ? "HEAD" : "GET", u->path, hosthdr, ua ? ua : "xeneva");
+
+	if (is_post) {
+		snprintf(req, sizeof(req),
+				 "POST %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: %s\r\n"
+				 "Content-Type: %s\r\nContent-Length: %zu\r\nAccept: */*\r\n"
+				 "Connection: close\r\n\r\n",
+				 u->path, hosthdr, ua ? ua : "xeneva",
+				 content_type ? content_type : "application/json",
+				 post_body_len);
+	} else {
+		snprintf(req, sizeof(req),
+				 "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: %s\r\nAccept: */*\r\n"
+				 "Connection: close\r\n\r\n",
+				 head_only ? "HEAD" : "GET", u->path, hosthdr, ua ? ua : "xeneva");
+	}
+
 	if (io_write_all(&r, (const unsigned char*)req, strlen(req)) < 0) {
 		set_err(out, "Send failed");
 		goto fail;
+	}
+	if (is_post && post_body && post_body_len > 0) {
+		if (io_write_all(&r, (const unsigned char*)post_body, post_body_len) < 0) {
+			set_err(out, "Send body failed");
+			goto fail;
+		}
 	}
 	if (read_headers(&r, hdr, sizeof(hdr)) < 0) {
 		set_err(out, "No HTTP response");
@@ -743,7 +763,71 @@ int xe_http_get(const char* url, const char* method, const char* user_agent,
 			set_err(out, "Bad URL");
 			return -1;
 		}
-		rc = fetch_once(&u, method, user_agent, out, max_body, location, sizeof(location));
+		rc = fetch_once(&u, method, user_agent, NULL, NULL, 0, out, max_body, location, sizeof(location));
+		if (rc < 0)
+			return -1;
+		if (out->status != 301 && out->status != 302 && out->status != 303 && out->status != 307 &&
+			out->status != 308)
+			break;
+		if (!location[0])
+			break;
+		if (hops == XE_MAX_REDIRECTS) {
+			set_err(out, "Too many redirects");
+			return -1;
+		}
+		if (join_location(&u, location, next, sizeof(next)) < 0) {
+			set_err(out, "Bad redirect");
+			return -1;
+		}
+		if (u.https && !strncmp(next, "http://", 7)) {
+			out->https_to_http = 1;
+			_KePrint("[https] redirect left TLS for %s\r\n", next);
+		}
+		snprintf(current, sizeof(current), "%s", next);
+		xe_http_response_free(out);
+	}
+	if (out->status >= 400) {
+		snprintf(out->error, sizeof(out->error), "HTTP %d", out->status);
+		return 22;
+	}
+	return 0;
+}
+
+int xe_http_post(const char* url, const char* content_type,
+				 const char* body, size_t body_len,
+				 const char* user_agent,
+				 xe_http_response* out, size_t max_body) {
+	char current[1600];
+	int hops;
+	if (!out)
+		return -1;
+	memset(out, 0, sizeof(*out));
+	if (!url || !url[0]) {
+		set_err(out, "Bad URL");
+		return -1;
+	}
+	snprintf(current, sizeof(current), "%s", url);
+	for (hops = 0; hops <= XE_MAX_REDIRECTS; hops++) {
+		struct xe_url u;
+		char location[1200];
+		char next[1600];
+		int pu = parse_url(current, &u);
+		int rc;
+		xe_http_response_free(out);
+		out->error[0] = 0;
+		out->headers[0] = 0;
+		out->status = 0;
+		if (pu == -2) {
+			set_err(out, "IPv6-only hosts are not reachable yet");
+			return -1;
+		}
+		if (pu < 0) {
+			set_err(out, "Bad URL");
+			return -1;
+		}
+		rc = fetch_once(&u, (hops == 0) ? "POST" : "GET", user_agent,
+						content_type, (hops == 0) ? body : NULL, (hops == 0) ? body_len : 0,
+						out, max_body, location, sizeof(location));
 		if (rc < 0)
 			return -1;
 		if (out->status != 301 && out->status != 302 && out->status != 303 && out->status != 307 &&
