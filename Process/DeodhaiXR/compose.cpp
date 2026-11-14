@@ -125,10 +125,18 @@ static void compose_window_rect(ChCanvas* canvas,
 		glass_prepare_window(win, info, DeoGetBackSurface(), (int)canvas->canvasWidth,
 							 (int)canvas->canvasHeight);
 
+	uint32_t* surfaceBuffer = (info->alpha || (win->flags & WINDOW_FLAG_GLASS)) ? DeoGetBackSurface() : NULL;
+
 	for (int i = 0; i < h; i++) {
 		uint32_t* canvas_row =
 			(uint32_t*)(canvas->buffer + (dst_y + i) * canvas->canvasWidth + dst_x);
 		uint32_t* backbuff = (uint32_t*)(win->backBuffer + (src_y + i) * info->width + src_x);
+
+		if (surfaceBuffer) {
+			uint32_t* bg_row = surfaceBuffer + (dst_y + i) * canvas->canvasWidth + dst_x;
+			_fastcpy(canvas_row, bg_row, (size_t)w * 4);
+		}
+
 		if (win->flags & WINDOW_FLAG_GLASS) {
 			uint32_t* blur_row = NULL;
 			if (screen_blur)
@@ -183,26 +191,7 @@ void _compose_dirty_area_(ChCanvas* canvas, Window* win, Window* focusedWin, Win
 
 			if (info->alpha) {
 				int dst_x = r1.x, dst_y = r1.y, w = r_w, h = r_h, sx = r_x, sy = r_y;
-				if (clip_compose_rect(&dst_x,
-									  &dst_y,
-									  &w,
-									  &h,
-									  &sx,
-									  &sy,
-									  (int)canvas->canvasWidth,
-									  clip_bottom,
-									  info->width,
-									  info->height)) {
-					for (int j = 0; j < h; j++) {
-						for (int i = 0; i < w; i++) {
-							uint32_t* dst = (uint32_t*)(canvas->buffer +
-														(dst_y + j) * canvas->canvasWidth + dst_x + i);
-							uint32_t src = *((uint32_t*)(win->backBuffer + (sy + j) * info->width + sx + i));
-							*dst = ChColorAlphaBlend(*dst, src, info->alphaValue);
-						}
-					}
-					AddDirtyClip(dst_x, dst_y, w, h);
-				}
+				compose_window_rect(canvas, win, info, dst_x, dst_y, w, h, sx, sy, clip_bottom);
 			} else {
 				clipRect[0] = r1;
 				clipCount = 1;

@@ -819,7 +819,10 @@ if [ "$XR_DEMO" -eq 0 ] && { [ "$NO_BOOT_MENU" -eq 1 ] || [ "$HEADLESS" -eq 1 ] 
     : > /tmp/xeneva-nomenu-marker
     mcopy -o -i fat.img /tmp/xeneva-nomenu-marker ::/NOMENU
     rm -f /tmp/xeneva-nomenu-marker
-    echo "[+] Boot menu skipped (NOMENU marker)."
+    echo -n "${XENEVA_RESOLUTION:-1024x768}" > /tmp/xeneva-res-marker
+    mcopy -o -i fat.img /tmp/xeneva-res-marker ::/RESOLUTION
+    rm -f /tmp/xeneva-res-marker
+    echo "[+] Boot menu skipped (NOMENU marker, resolution: ${XENEVA_RESOLUTION:-1024x768})."
 fi
 
 # --- Package as a bootable ISO instead of launching QEMU ---

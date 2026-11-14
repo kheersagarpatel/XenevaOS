@@ -83,6 +83,8 @@ void envmdebug() {
  * PTE wouldve left stale contents sitting in a newly allocated child table
  * on non-coherent table walks --axiss */
 static void vmm_prepare_table(uint64_t page) {
+	if (page == PMM_INVALID_PHYS || page == 0)
+		return;
 	void* table = (void*)P2V(page);
 	memset(table, 0, 4096);
 	aa64_data_cache_clean_range(table, 4096);
@@ -143,6 +145,8 @@ bool AuMapPage(uint64_t phys_addr, uint64_t virt_addr, uint8_t attrib) {
 
 	if (!(pml4i[i4] & 1)) {
 		const uint64_t page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+		if (page == PMM_INVALID_PHYS || page == 0)
+			return false;
 		if (_vmdebug)
 			UARTDebugOut("Creating pm4 entry : %x \r\n", page);
 		vmm_prepare_table(page);
@@ -161,6 +165,8 @@ bool AuMapPage(uint64_t phys_addr, uint64_t virt_addr, uint8_t attrib) {
 
 	if (!(pml3[i3] & 1)) {
 		const uint64_t page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+		if (page == PMM_INVALID_PHYS || page == 0)
+			return false;
 		if (_vmdebug)
 			UARTDebugOut("Creating PML3 Entry : %x \r\n", page);
 		vmm_prepare_table(page);
@@ -188,6 +194,8 @@ bool AuMapPage(uint64_t phys_addr, uint64_t virt_addr, uint8_t attrib) {
 
 	if (!(pml2[i2] & 1)) {
 		const uint64_t page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+		if (page == PMM_INVALID_PHYS || page == 0)
+			return false;
 		if (_vmdebug)
 			UARTDebugOut("Creating PML2 Entry %x\r\n", page);
 		vmm_prepare_table(page);
@@ -262,6 +270,8 @@ bool AuMapPageEx(uint64_t* pml4i, uint64_t phys_addr, uint64_t virt_addr, uint8_
 
 	if (!(pml4i[i4] & 1)) {
 		const uint64_t page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+		if (page == PMM_INVALID_PHYS || page == 0)
+			return false;
 		vmm_prepare_table(page);
 		pml4i[i4] = (page & ~0xFFFUL) | PTE_VALID | PTE_TABLE | PTE_AF;
 		aa64_data_cache_clean_range(&pml4i[i4], sizeof(uint64_t));
@@ -270,6 +280,8 @@ bool AuMapPageEx(uint64_t* pml4i, uint64_t phys_addr, uint64_t virt_addr, uint8_
 
 	if (!(pml3[i3] & 1)) {
 		const uint64_t page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+		if (page == PMM_INVALID_PHYS || page == 0)
+			return false;
 		vmm_prepare_table(page);
 		pml3[i3] = (page & ~0xFFFUL) | PTE_VALID | PTE_TABLE | PTE_AF;
 		aa64_data_cache_clean_range(&pml3[i3], sizeof(uint64_t));
@@ -279,6 +291,8 @@ bool AuMapPageEx(uint64_t* pml4i, uint64_t phys_addr, uint64_t virt_addr, uint8_
 
 	if (!(pml2[i2] & 1)) {
 		const uint64_t page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+		if (page == PMM_INVALID_PHYS || page == 0)
+			return false;
 		vmm_prepare_table(page);
 		pml2[i2] = (page & ~0xFFFUL) | PTE_VALID | PTE_TABLE | PTE_AF;
 		aa64_data_cache_clean_range(&pml2[i2], sizeof(uint64_t));
@@ -330,6 +344,8 @@ AuVPage* AuVmmngrGetPage(uint64_t virt_addr, uint8_t _flags, uint8_t mode) {
 
 	if (!(pml4i[i4] & 1)) {
 		const uint64_t page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+		if (page == PMM_INVALID_PHYS || page == 0)
+			return NULL;
 		vmm_prepare_table(page);
 		pml4i[i4] = page | flags;
 		aa64_data_cache_clean_range(&pml4i[i4], sizeof(uint64_t));
@@ -339,6 +355,8 @@ AuVPage* AuVmmngrGetPage(uint64_t virt_addr, uint8_t _flags, uint8_t mode) {
 
 	if (!(pml3[i3] & 1)) {
 		const uint64_t page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+		if (page == PMM_INVALID_PHYS || page == 0)
+			return NULL;
 		vmm_prepare_table(page);
 		pml3[i3] = page | flags;
 		aa64_data_cache_clean_range(&pml3[i3], sizeof(uint64_t));
@@ -349,6 +367,8 @@ AuVPage* AuVmmngrGetPage(uint64_t virt_addr, uint8_t _flags, uint8_t mode) {
 
 	if (!(pml2[i2] & 1)) {
 		const uint64_t page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+		if (page == PMM_INVALID_PHYS || page == 0)
+			return NULL;
 		vmm_prepare_table(page);
 		pml2[i2] = page | flags;
 		aa64_data_cache_clean_range(&pml2[i2], sizeof(uint64_t));
@@ -362,6 +382,8 @@ AuVPage* AuVmmngrGetPage(uint64_t virt_addr, uint8_t _flags, uint8_t mode) {
 	} else {
 		if (mode & VIRT_GETPAGE_CREATE && !(mode & VIRT_GETPAGE_ONLY_RET)) {
 			uint64_t phys_addr = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+			if (phys_addr == PMM_INVALID_PHYS || phys_addr == 0)
+				return NULL;
 			memset((void*)P2V(phys_addr), 0, 4096);
 			pml1[i1] = phys_addr & ~0xFFFULL | flags;
 			data_cache_flush(&pml1[i1]);
@@ -604,7 +626,10 @@ void* AuGetPhysicalAddressEx(uint64_t* pml4_, uint64_t virt_addr) {
  */
 uint64_t* AuCreateVirtualAddressSpace() {
 	uint64_t* root_pml = (uint64_t*)P2V((size_t)_RootPagingKe);
-	uint64_t* new_pml = (uint64_t*)P2V((size_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL));
+	uint64_t new_page = (uint64_t)AuPmmngrAllocPage(AURORA_PAGE_NORMAL);
+	if (new_page == PMM_INVALID_PHYS || new_page == 0)
+		return NULL;
+	uint64_t* new_pml = (uint64_t*)P2V(new_page);
 	memset(new_pml, 0, PAGE_SIZE);
 
 	for (int i = 0; i < 512; i++) {

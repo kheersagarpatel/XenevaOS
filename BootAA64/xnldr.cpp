@@ -488,9 +488,35 @@ extern "C" EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemT
 	/* The resolution menu shows by default. Packaging --no-boot-menu drops
 	 * a NOMENU marker on the ESP, and headless/egl/xr runs always skip --
 	 * nothing interactive can answer there. --axiss */
+	XEDiscoverGraphicsModes();
 	int index = 0;
-	if (!XEFileExists(ImageHandle, (CHAR16*)L"\\NOMENU"))
+	if (!XEFileExists(ImageHandle, (CHAR16*)L"\\NOMENU")) {
 		index = XEGetScreenResolutionMode(SystemTable);
+	} else {
+		/* When NOMENU is passed, check if a specific resolution is requested in \RESOLUTION */
+		XEFile* resFile = XEOpenAndReadFile(ImageHandle, (CHAR16*)L"\\RESOLUTION");
+		if (resFile && resFile->kBuffer && resFile->FileSize > 0) {
+			char* buf = (char*)resFile->kBuffer;
+			for (UINTN i = 0; i < MenuItemCount; i++) {
+				if ((buf[0] == '1' && buf[1] == '9' && MenuItem[i].Width == 1920) ||
+				    (buf[0] == '1' && buf[1] == '2' && MenuItem[i].Width == 1280) ||
+				    (buf[0] == '1' && buf[1] == '0' && MenuItem[i].Width == 1024) ||
+				    (buf[0] == '8' && MenuItem[i].Width == 800) ||
+				    (buf[0] == '6' && MenuItem[i].Width == 640)) {
+					index = (int)i;
+					break;
+				}
+			}
+		} else {
+			/* Default to 1024x768 native GOP resolution instead of dropping to 640x480 */
+			for (UINTN i = 0; i < MenuItemCount; i++) {
+				if (MenuItem[i].Width == 1024 && MenuItem[i].Height == 768) {
+					index = (int)i;
+					break;
+				}
+			}
+		}
+	}
 	/* Set the graphics resolution based on user selection */
 	UINTN Mode = XESetGraphicsMode(SystemTable, index);
 	XEGuiPrint("XenevaOS Loader 2.0 (XNLDR) ARM64\n");

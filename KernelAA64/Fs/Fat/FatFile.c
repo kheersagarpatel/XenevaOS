@@ -256,7 +256,7 @@ void FatFileUpdateSize(AuVFSNode* fsys, AuVFSNode* file, size_t size) {
 				memcpy(name, dirent->filename, 11);
 				//name[11] = 0;
 
-				if (strcmp(fname, name) == 0) {
+				if (memcmp(fname, name, 11) == 0) {
 					dirent->file_size += size;
 					AuVDiskWrite(_fs->vdisk, FatClusterToSector32(_fs, dir_cluster) + j, 1, buff);
 					AuPmmngrReleasePage((uint64_t)V2P((size_t)buff));
@@ -315,7 +315,7 @@ int FatFileUpdateFilename(AuVFSNode* fsys, AuVFSNode* file, char* newname) {
 				memcpy(name, dirent->filename, 11);
 				//name[11] = 0;
 
-				if (strcmp(name, fname) == 0) {
+				if (memcmp(name, fname, 11) == 0) {
 					memcpy(dirent->filename, nname, 11);
 					AuVDiskWrite(_fs->vdisk, FatClusterToSector32(_fs, dir_cluster) + j, 1, buff);
 					AuPmmngrReleasePage((uint64_t)V2P((size_t)buff));
@@ -458,7 +458,7 @@ int FatFileClearDirEntry(AuVFSNode* fsys, AuVFSNode* file) {
 				char name[11];
 				memcpy(name, dirent->filename, 11);
 				//name[11] = 0;
-				if (strcmp(name, fname) == 0) {
+				if (memcmp(name, fname, 11) == 0) {
 					memset(dirent, 0, sizeof(FatDir));
 					//SeTextOut("Dir clearing found \r\n");
 					dirent->filename[0] = 0xE5;

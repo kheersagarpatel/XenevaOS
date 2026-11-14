@@ -421,6 +421,8 @@ void ChFontDrawText(
 			for (int j = y_v, q = 0;
 				 j < y_v + font->face->glyph->bitmap.rows && q < font->face->glyph->bitmap.rows;
 				 j++, q++) {
+				if (i < 0 || j < 0 || i >= canv->canvasWidth || j >= canv->canvasHeight)
+					continue;
 				if (font->face->glyph->bitmap.buffer[q * font->face->glyph->bitmap.width + p] > 0) {
 					double val =
 						font->face->glyph->bitmap.buffer[q * font->face->glyph->bitmap.width + p] *
